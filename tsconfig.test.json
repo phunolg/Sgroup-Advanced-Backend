@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "src/api-docs/__tests__/**/*.ts", "test/**/*.ts"],
+  "exclude": [],
+  "compilerOptions": {
+    "types": ["node", "jest"]
+  }
+}
