@@ -1,0 +1,68 @@
+import {
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+  OneToMany,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  ManyToMany,
+  JoinTable,
+} from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
+import { BaseEntityTimestamps } from '../../entities/base.entity';
+import { BoardMember } from './board-member.entity';
+import { List } from './list.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { User } from '../../users/entities/user.entity';
+
+@Entity('boards')
+export class Board extends BaseEntityTimestamps {
+  @ApiProperty({ example: '1' })
+  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  id!: string;
+
+  @ApiProperty()
+  @Index('idx_boards_workspace_id')
+  @Column({ type: 'bigint', nullable: true })
+  workspace_id?: string;
+
+  @ManyToOne(() => Workspace, (w) => w.boards, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'workspace_id' })
+  workspace?: Workspace;
+
+  @ApiProperty()
+  @Column({ type: 'text' })
+  name!: string;
+
+  @ApiProperty()
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
+  @ApiProperty()
+  @Column({ type: 'text', nullable: true })
+  cover_url?: string;
+
+  @ApiProperty()
+  @Column({ type: 'boolean', default: false })
+  is_closed!: boolean;
+
+  @ApiProperty({ example: '1' })
+  @Column({ type: 'bigint', nullable: true })
+  created_by?: string;
+
+  @OneToMany(() => BoardMember, (bm) => bm.board)
+  members?: BoardMember[];
+
+  @OneToMany(() => List, (l) => l)
+  lists?: List[];
+
+  // ManyToMany convenience accessor to users via board_members join table
+  @ManyToMany(() => User, { cascade: false })
+  @JoinTable({
+    name: 'board_members',
+    joinColumn: { name: 'board_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  })
+  users?: any[];
+}

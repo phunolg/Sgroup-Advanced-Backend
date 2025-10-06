@@ -16,4 +16,17 @@ module.exports = {
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off'
   },
+  overrides: [
+    {
+      files: ['**/*.js'],
+      parser: 'espree',
+      parserOptions: {
+        ecmaVersion: 2021,
+        sourceType: 'module',
+      },
+      rules: {
+        '@typescript-eslint/no-var-requires': 'off',
+      },
+    },
+  ],
 };
