@@ -4,7 +4,6 @@ export class CreateMissingIndexes1759762000000 implements MigrationInterface {
   name = 'CreateMissingIndexes1759762000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Use IF NOT EXISTS so this migration is idempotent
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "idx_boards_workspace_id" ON "boards" ("workspace_id")`,
     );

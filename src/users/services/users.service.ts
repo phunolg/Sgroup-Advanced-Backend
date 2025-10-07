@@ -1,6 +1,4 @@
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
-export class UsersService {
-  // TODO: Implement user business logic
-}
+export class UsersService {}

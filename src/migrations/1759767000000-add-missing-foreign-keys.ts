@@ -4,7 +4,6 @@ export class AddMissingForeignKeys1759767000000 implements MigrationInterface {
   name = 'AddMissingForeignKeys1759767000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Add foreign keys for card_labels table
     await queryRunner.query(`
       ALTER TABLE "card_labels" 
       ADD CONSTRAINT "FK_card_labels_card_id" 
@@ -19,7 +18,6 @@ export class AddMissingForeignKeys1759767000000 implements MigrationInterface {
       ON DELETE CASCADE
     `);
 
-    // Add foreign keys for checklists table
     await queryRunner.query(`
       ALTER TABLE "checklists" 
       ADD CONSTRAINT "FK_checklists_card_id" 
@@ -27,7 +25,6 @@ export class AddMissingForeignKeys1759767000000 implements MigrationInterface {
       ON DELETE CASCADE
     `);
 
-    // Add foreign keys for checklist_items table
     await queryRunner.query(`
       ALTER TABLE "checklist_items" 
       ADD CONSTRAINT "FK_checklist_items_checklist_id" 
