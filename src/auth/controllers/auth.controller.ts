@@ -1,6 +1,16 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, ValidationPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  ValidationPipe,
+  Get,
+  Query,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
+import { Public } from '../../common/decorators/public.decorator';
 import {
   LoginDto,
   LoginResponseDto,
@@ -14,6 +24,7 @@ import {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
@@ -38,6 +49,7 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'User registration' })
@@ -58,10 +70,61 @@ export class AuthController {
   async register(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     registerDto: RegisterDto,
-  ): Promise<LoginResponseDto> {
+  ): Promise<{ message: string; email: string }> {
     return this.authService.register(registerDto);
   }
 
+  @Public()
+  @Get('verify-email')
+  @ApiOperation({ summary: 'Verify email address' })
+  @ApiQuery({ name: 'token', description: 'Verification token from email' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired token',
+  })
+  async verifyEmail(@Query('token') token: string): Promise<{ message: string }> {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend verification email' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', format: 'email' },
+      },
+      required: ['email'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email sent',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Email already verified',
+  })
+  async resendVerification(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: {
+      email: string;
+    },
+  ): Promise<{ message: string }> {
+    return this.authService.resendVerificationEmail(body.email);
+  }
+
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })

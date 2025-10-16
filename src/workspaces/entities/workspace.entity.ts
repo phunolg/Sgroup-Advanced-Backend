@@ -29,6 +29,6 @@ export class Workspace extends BaseEntityTimestamps {
   @OneToMany(() => WorkspaceMember, (wm) => wm.workspace)
   members?: WorkspaceMember[];
 
-  @OneToMany(() => Board, (b) => b)
+  @OneToMany(() => Board, (b) => b.workspace)
   boards?: Board[];
 }
