@@ -17,7 +17,7 @@ export class CreateMissingIndexes1759762000000 implements MigrationInterface {
       `CREATE INDEX IF NOT EXISTS "idx_lists_board_pos" ON "lists" ("position")`,
     );
     await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "idx_cards_list_pos" ON "cards" ("list_id")`,
+      `CREATE INDEX IF NOT EXISTS "idx_cards_list_id" ON "cards" ("list_id")`,
     );
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "idx_cards_created_by" ON "cards" ("created_by")`,
@@ -71,7 +71,7 @@ export class CreateMissingIndexes1759762000000 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_archived"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_due_at"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_created_by"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_list_pos"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_list_pos1"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_lists_board_pos"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_lists_board_id"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_board_members_user"`);
