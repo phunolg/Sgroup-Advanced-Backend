@@ -24,7 +24,7 @@ export class Card {
   id!: string;
 
   @ApiProperty()
-  @Index('idx_cards_list_pos')
+  // @Index('idx_cards_list_pos')
   @Column({ type: 'bigint' })
   list_id!: string;
 

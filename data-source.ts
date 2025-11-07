@@ -16,7 +16,7 @@ const ds = new DataSource({
     'src/cards/entities/*.entity{.ts,.js}',
   ],
   migrations: ['src/migrations/*.ts'],
-  synchronize: false,
+  synchronize: true,
 });
 
 export default ds;
