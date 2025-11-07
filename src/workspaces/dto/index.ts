@@ -1,1 +1,2 @@
-// TODO: Export workspace DTOs when implemented
+export * from './create-workspace.dto';
+export * from './update-workspace.dto';

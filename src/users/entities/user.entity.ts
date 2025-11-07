@@ -44,6 +44,20 @@ export class User {
   @Column({ type: 'boolean', default: false })
   is_deleted!: boolean;
 
+  @ApiProperty({ example: false, description: 'Email đã được xác thực' })
+  @Column({ type: 'boolean', default: false })
+  is_email_verified!: boolean;
+
+  @ApiProperty({ example: ['user'], description: 'Vai trò của user' })
+  @Column({ type: 'text', array: true, default: ['user'] })
+  roles!: string[];
+
+  @Column({ type: 'text', nullable: true })
+  verification_token?: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verification_token_expires?: Date;
+
   @ApiProperty({ example: '2025-09-22T12:00:00.000Z', description: 'Thời gian tạo' })
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
