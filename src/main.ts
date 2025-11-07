@@ -4,10 +4,24 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { openAPIRouter } from './api-docs/openAPIRouter';
 import * as fs from 'node:fs';
 import * as dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 dotenv.config();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(cookieParser());
+
+  app.enableCors({
+    // Allow localhost on any port in dev (e.g., 5173, 5174, 3000, etc.)
+    origin: [
+      /^http:\/\/localhost:\d+$/,
+      /^http:\/\/127\.0\.0\.1:\d+$/,
+      process.env.CORS_ORIGIN ?? '',
+    ].filter(Boolean) as any,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
 
   const config = new DocumentBuilder()
     .setTitle('Sgroup Advanced Backend')

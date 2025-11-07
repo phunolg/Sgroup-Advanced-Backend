@@ -10,5 +10,8 @@ export const typeormConfig: TypeOrmModuleOptions = {
   password: process.env.DB_PASS,
   database: process.env.DB_NAME || 'training_backend',
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: true,
+  autoLoadEntities: true,
+  synchronize: process.env.NODE_ENV !== 'production',
+  migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+  migrationsRun: false,
 };

@@ -99,15 +99,12 @@ export class Card {
   @OneToMany(() => Attachment, (a) => a.card)
   attachments?: Attachment[];
 
-  // OneToMany to join table for more control
   @OneToMany(() => CardLabel, (cl) => cl.card)
   cardLabels?: CardLabel[];
 
-  // OneToMany to checklists
   @OneToMany(() => Checklist, (checklist) => checklist.card)
   checklists?: Checklist[];
 
-  // ManyToMany convenience between cards and labels using card_labels join table
   @ManyToMany(() => Label, { cascade: false })
   @JoinTable({
     name: 'card_labels',

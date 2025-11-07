@@ -15,7 +15,7 @@ export class BoardMember {
   user_id!: string;
 
   @ApiProperty({ example: 'admin' })
-  @Column({ type: 'text' })
+  @Column({ type: 'text', default: 'normal' })
   role!: 'admin' | 'normal' | 'observer';
 
   @ApiProperty()

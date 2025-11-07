@@ -7,6 +7,8 @@ import {
   ValidationPipe,
   Get,
   Query,
+  Res,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
@@ -18,6 +20,7 @@ import {
   RefreshTokenDto,
   RefreshTokenResponseDto,
 } from '../dto';
+import { Response, Request } from 'express';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -45,8 +48,29 @@ export class AuthController {
   async login(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
-    return this.authService.login(loginDto);
+    const result = await this.authService.login(loginDto);
+
+    const isProd = process.env.NODE_ENV === 'production';
+    // Set HttpOnly cookies for tokens
+    res.cookie('access_token', result.access_token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      maxAge: result.expires_in * 1000,
+      path: '/',
+    });
+    res.cookie('refresh_token', result.refresh_token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    return result;
   }
 
   @Public()
@@ -145,7 +169,47 @@ export class AuthController {
   async refreshToken(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     refreshTokenDto: RefreshTokenDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<RefreshTokenResponseDto> {
-    return this.authService.refreshToken(refreshTokenDto);
+    // Allow using cookie if body is empty/missing
+    const tokenFromCookie = (req as any).cookies?.refresh_token as string | undefined;
+    const effectiveDto: RefreshTokenDto = {
+      refresh_token: refreshTokenDto.refresh_token || tokenFromCookie || '',
+    };
+
+    const result = await this.authService.refreshToken(effectiveDto);
+
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('access_token', result.access_token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      maxAge: result.expires_in * 1000,
+      path: '/',
+    });
+
+    return result;
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Logout and clear auth cookies' })
+  @ApiResponse({ status: 200, description: 'Logged out' })
+  async logout(@Res({ passthrough: true }) res: Response): Promise<{ message: string }> {
+    const isProd = process.env.NODE_ENV === 'production';
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      path: '/',
+    });
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      path: '/',
+    });
+    return { message: 'Logged out' };
   }
 }
