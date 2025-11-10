@@ -82,7 +82,9 @@ export class AuthService {
     };
   }
 
-  async register(registerDto: RegisterDto): Promise<{ message: string; email: string }> {
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<{ message: string; email: string; emailSent: boolean }> {
     const { email, name, password } = registerDto;
 
     const existingUser = await this.userRepository.findOne({
@@ -115,19 +117,25 @@ export class AuthService {
     const savedUser = await this.userRepository.save(newUser);
 
     // Send verification email
+    let emailSent = false;
     try {
       await this.mailService.sendVerificationEmail(
         savedUser.email,
         savedUser.name,
         verificationToken,
       );
+      emailSent = true;
+      console.log(`Verification email sent successfully to ${savedUser.email}`);
     } catch (error) {
       console.error('Failed to send verification email:', error);
     }
 
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
+      message: emailSent
+        ? 'Registration successful. Please check your email to verify your account.'
+        : 'Registration successful. However, we could not send the verification email. Please try to resend it later.',
       email: savedUser.email,
+      emailSent,
     };
   }
 
