@@ -43,4 +43,22 @@ export class MailService {
       throw error;
     }
   }
+
+  async sendNotificationAddWorkspace(
+    email: string,
+    name: string,
+    projectName: string,
+    projectUrl?: string,
+  ): Promise<void> {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Bạn đã được thêm vào dự án: ' + projectName,
+      template: 'notificationAddWorkspace',
+      context: {
+        name,
+        workspaceName: projectName,
+        workspaceUrl: projectUrl,
+      },
+    });
+  }
 }
