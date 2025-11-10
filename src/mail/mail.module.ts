@@ -23,7 +23,10 @@ import { join } from 'path';
           from: `"${configService.get('MAIL_FROM_NAME', 'Sgroup Backend')}" <${configService.get('MAIL_FROM', 'noreply@sgroup.com')}>`,
         },
         template: {
-          dir: join(__dirname, 'templates'),
+          dir:
+            process.env.NODE_ENV === 'production'
+              ? join(process.cwd(), 'dist', 'src', 'mail', 'templates')
+              : join(process.cwd(), 'src', 'mail', 'templates'),
           adapter: new HandlebarsAdapter(),
           options: {
             strict: true,
