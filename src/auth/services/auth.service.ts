@@ -115,11 +115,15 @@ export class AuthService {
     const savedUser = await this.userRepository.save(newUser);
 
     // Send verification email
-    await this.mailService.sendVerificationEmail(
-      savedUser.email,
-      savedUser.name,
-      verificationToken,
-    );
+    try {
+      await this.mailService.sendVerificationEmail(
+        savedUser.email,
+        savedUser.name,
+        verificationToken,
+      );
+    } catch (error) {
+      console.error('Failed to send verification email:', error);
+    }
 
     return {
       message: 'Registration successful. Please check your email to verify your account.',
