@@ -15,7 +15,7 @@ export class WorkspacesService {
     private readonly mailService: MailService,
   ) {}
 
-  async create(dto: CreateWorkspaceDto, userId: string): Promise<Workspace> {
+  async create(dto: CreateWorkspaceDto, userId: number): Promise<Workspace> {
     const entity = this.repo.create({ ...dto });
 
     const savedWorkspace = await this.repo.save(entity);
@@ -53,7 +53,7 @@ export class WorkspacesService {
   }
 
   // add member to workspace
-  async addMember(workspaceId: string, userId: string): Promise<void> {
+  async addMember(workspaceId: string, userId: number): Promise<void> {
     // ensure workspace exists
     const workspace = await this.repo.findOne({ where: { id: workspaceId } });
     if (!workspace) {

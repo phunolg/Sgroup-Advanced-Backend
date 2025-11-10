@@ -61,7 +61,7 @@ export class WorkspacesController {
     @Param('workspaceId') workspaceId: string,
     @Body() body: AddMemberDto,
   ): Promise<{ success: true }> {
-    await this.service.addMember(workspaceId, body.userId);
+    await this.service.addMember(workspaceId, Number(body.userId));
     return { success: true };
   }
 }

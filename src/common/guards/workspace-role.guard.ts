@@ -36,7 +36,7 @@ export class WorkspaceRoleGuard implements CanActivate {
       req.params?.workspaceId ?? req.params?.id ?? req.body?.workspaceId ?? req.query?.workspaceId;
     if (!workspaceId) throw new UnauthorizedException('Workspace ID not provided');
 
-    const userId = String(user.sub ?? user.id ?? user);
+    const userId = Number(user.sub ?? user.id ?? user);
     const repo = this.dataSource.getRepository(WorkspaceMember);
     const membership = await repo.findOne({
       where: { workspace_id: workspaceId, user_id: userId },
