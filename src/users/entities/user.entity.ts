@@ -16,9 +16,9 @@ import { Comment } from '../../cards/entities/comment.entity';
 
 @Entity('users')
 export class User {
-  @ApiProperty({ example: '1', description: 'Auto-increment bigint id' })
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
-  id!: string;
+  @ApiProperty({ example: 1, description: 'Auto-increment id' })
+  @PrimaryGeneratedColumn('increment')
+  id!: number;
 
   @ApiProperty({ example: 'john@example.com', description: 'Email duy nhất của user' })
   @Column({ unique: true, type: 'citext' })
