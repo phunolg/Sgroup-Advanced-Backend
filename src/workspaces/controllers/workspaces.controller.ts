@@ -1,10 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspacesService } from '../services/workspaces.service';
 import { CreateWorkspaceDto, UpdateWorkspaceDto } from '../dto';
 import { Workspace } from '../entities/workspace.entity';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/roles.enum';
+import { AddMemberDto } from '../dto/add-member.dto';
+import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
 
 @ApiTags('Workspaces')
 @Controller('api/workspaces')
@@ -14,8 +18,9 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Create workspace' })
   @ApiOkResponse({ type: Workspace })
   @Post()
-  create(@Body() dto: CreateWorkspaceDto): Promise<Workspace> {
-    return this.service.create(dto);
+  create(@Body() dto: CreateWorkspaceDto, @Req() req: any): Promise<Workspace> {
+    const userId = req.user?.sub;
+    return this.service.create(dto, userId);
   }
 
   @ApiOperation({ summary: 'List workspaces' })
@@ -45,6 +50,18 @@ export class WorkspacesController {
   @Delete(':id')
   async remove(@Param('id') id: string): Promise<{ success: true }> {
     await this.service.remove(id);
+    return { success: true };
+  }
+
+  @ApiOperation({ summary: 'Add member to workspace' })
+  @UseGuards(JwtAuthGuard, WorkspaceRoleGuard)
+  @WorkspaceRoles('owner')
+  @Post('members/:workspaceId')
+  async addMember(
+    @Param('workspaceId') workspaceId: string,
+    @Body() body: AddMemberDto,
+  ): Promise<{ success: true }> {
+    await this.service.addMember(workspaceId, body.userId);
     return { success: true };
   }
 }
