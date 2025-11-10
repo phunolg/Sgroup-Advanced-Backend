@@ -10,7 +10,7 @@ export class MailService {
   ) {}
 
   async sendVerificationEmail(email: string, name: string, token: string): Promise<void> {
-    const verificationUrl = `${this.configService.get('APP_URL', 'http://localhost:3000')}/api/auth/verify-email?token=${token}`;
+    const verificationUrl = `${this.configService.get('APP_URL', 'http://localhost:5000')}/auth/verify-email?token=${token}`;
 
     try {
       await this.mailerService.sendMail({
