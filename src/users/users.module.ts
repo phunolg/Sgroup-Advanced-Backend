@@ -15,6 +15,7 @@ import { Label } from '../boards/entities/label.entity';
 import { List } from '../boards/entities/list.entity';
 import { Board } from '../boards/entities/board.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { Workspace } from '../workspaces/entities/workspace.entity';
       Board,
       Workspace,
     ]),
+    AuthModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],
