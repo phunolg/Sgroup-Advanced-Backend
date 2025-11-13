@@ -23,6 +23,14 @@ export class WorkspacesController {
     return this.service.create(dto, userId);
   }
 
+  // Lấy các workspace mà user hiện tại tham gia
+  @ApiOperation({ summary: 'Get workspaces for current user' })
+  @Get('my-workspaces')
+  async getWorkspacesForCurrentUser(@Req() req: any): Promise<Workspace[]> {
+    const userId = req.user?.sub;
+    return this.service.findWorkspacesForUser(userId);
+  }
+
   @ApiOperation({ summary: 'List workspaces' })
   @ApiOkResponse({ type: [Workspace] })
   @Get()
@@ -63,5 +71,13 @@ export class WorkspacesController {
   ): Promise<{ success: true }> {
     await this.service.addMember(workspaceId, Number(body.userId));
     return { success: true };
+  }
+
+  @ApiOperation({ summary: 'Toggle status workspace' })
+  @UseGuards(JwtAuthGuard, WorkspaceRoleGuard)
+  @WorkspaceRoles('member', 'owner')
+  @Patch('status/:id')
+  async toggleStatus(@Param('id') id: string): Promise<Workspace> {
+    return this.service.toggleWorkspaceStatus(id);
   }
 }

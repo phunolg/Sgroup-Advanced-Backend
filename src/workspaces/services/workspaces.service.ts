@@ -94,4 +94,32 @@ export class WorkspacesService {
       undefined,
     );
   }
+
+  // Lấy các workspace mà user hiện tại tham gia
+  async findWorkspacesForUser(userId: number): Promise<Workspace[]> {
+    const memberRepo = this.repo.manager.getRepository(WorkspaceMember);
+
+    const memberships = await memberRepo.find({
+      where: { user_id: userId },
+      relations: ['workspace'],
+    });
+
+    return memberships.map((m) => m.workspace).filter((w) => w !== undefined);
+  }
+
+  // Chuyển đổi trạng thái của workspace (active/inactive)
+  async toggleWorkspaceStatus(workspaceId: string): Promise<Workspace> {
+    // find workspace by id
+    const workspaceFound = await this.repo.findOne({ where: { id: workspaceId } });
+    if (!workspaceFound) throw new NotFoundException('Workspace not found');
+
+    // toggle status
+    workspaceFound.is_active = !workspaceFound.is_active;
+
+    // save changes
+    const saveChanges = await this.repo.save(workspaceFound);
+    if (!saveChanges) throw new BadRequestException('Failed to toggle workspace status');
+
+    return saveChanges;
+  }
 }
