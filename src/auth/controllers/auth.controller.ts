@@ -9,9 +9,11 @@ import {
   Query,
   Res,
   Req,
-  Put,
+  Patch,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
 import { Public } from '../../common/decorators/public.decorator';
@@ -219,7 +221,8 @@ export class AuthController {
     return { message: 'Logged out' };
   }
 
-  @Put('password')
+  @Patch('password')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update password for authenticated user' })
   @ApiBody({ type: UpdatePasswordDto })
@@ -231,11 +234,11 @@ export class AuthController {
     { current_password, new_password, confirm_password }: UpdatePasswordDto,
     @CurrentUser() user: any,
   ): Promise<{ message: string }> {
-    if (!user || !user.id) {
+    if (!user || !user.sub) {
       throw new UnauthorizedException('User not authenticated');
     }
     return this.authService.updatePassword(
-      user.id,
+      user.sub,
       current_password,
       new_password,
       confirm_password,
