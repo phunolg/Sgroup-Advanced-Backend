@@ -12,7 +12,7 @@ export class WorkspaceMember {
   @ApiProperty({ example: '1' })
   @PrimaryColumn({ type: 'bigint' })
   @Index('idx_workspace_members_user')
-  user_id!: string;
+  user_id!: number;
 
   @ApiProperty({ example: 'member' })
   @Column({ type: 'text' })
