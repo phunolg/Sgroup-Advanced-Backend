@@ -9,16 +9,22 @@ import {
   Query,
   Res,
   Req,
+  Put,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import {
   LoginDto,
   LoginResponseDto,
   RegisterDto,
   RefreshTokenDto,
   RefreshTokenResponseDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  UpdatePasswordDto,
 } from '../dto';
 import { Response, Request } from 'express';
 
@@ -211,5 +217,64 @@ export class AuthController {
       path: '/',
     });
     return { message: 'Logged out' };
+  }
+
+  @Put('password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update password for authenticated user' })
+  @ApiBody({ type: UpdatePasswordDto })
+  @ApiResponse({ status: 200, description: 'Password updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid password or validation error' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async updatePassword(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    { current_password, new_password, confirm_password }: UpdatePasswordDto,
+    @CurrentUser() user: any,
+  ): Promise<{ message: string }> {
+    if (!user || !user.id) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    return this.authService.updatePassword(
+      user.id,
+      current_password,
+      new_password,
+      confirm_password,
+    );
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({ status: 200, description: 'Reset link sent if email exists' })
+  async forgotPassword(@Body() { email }: ForgotPasswordDto): Promise<{ message: string }> {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Public()
+  @Get('reset-password')
+  @ApiOperation({ summary: 'Validate reset password token' })
+  @ApiQuery({ name: 'token', description: 'Reset password token' })
+  @ApiResponse({ status: 200, description: 'Token is valid' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async validateResetPasswordToken(
+    @Query('token') token: string,
+  ): Promise<{ valid: boolean; message: string }> {
+    const result = await this.authService.validateResetToken(token);
+    return result;
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async resetPassword(
+    @Body() { token, new_password, confirm_password }: ResetPasswordDto,
+  ): Promise<{ message: string }> {
+    return this.authService.resetPassword(token, new_password, confirm_password);
   }
 }
