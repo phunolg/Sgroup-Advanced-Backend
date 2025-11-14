@@ -58,6 +58,12 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   verification_token_expires?: Date;
 
+  @Column({ type: 'text', nullable: true })
+  reset_password_token?: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reset_password_token_expires?: Date;
+
   @ApiProperty({ example: '2025-09-22T12:00:00.000Z', description: 'Thời gian tạo' })
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;

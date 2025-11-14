@@ -44,21 +44,47 @@ export class MailService {
     }
   }
 
+  async sendResetPasswordEmail(email: string, name: string, token: string): Promise<void> {
+    const resetUrl = `${this.configService.get('APP_URL', 'http://localhost:5000')}/auth/reset-password?token=${token}`;
+
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: 'Reset your Sgroup password',
+        template: 'reset-password',
+        context: {
+          name,
+          email,
+          resetUrl,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send reset password email:', error);
+      throw error;
+    }
+  }
+
   async sendNotificationAddWorkspace(
     email: string,
     name: string,
-    projectName: string,
-    projectUrl?: string,
+    workspaceName: string,
+    invitedBy?: string,
   ): Promise<void> {
-    await this.mailerService.sendMail({
-      to: email,
-      subject: 'Bạn đã được thêm vào dự án: ' + projectName,
-      template: 'notificationAddWorkspace',
-      context: {
-        name,
-        workspaceName: projectName,
-        workspaceUrl: projectUrl,
-      },
-    });
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: `You've been added to ${workspaceName} workspace`,
+        template: 'add-workspace-notification',
+        context: {
+          name,
+          workspaceName,
+          invitedBy: invitedBy || 'Team',
+          workspaceUrl: `${this.configService.get('APP_URL', 'http://localhost:5000')}/workspaces`,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send workspace notification email:', error);
+      // Don't throw error to avoid breaking the add member flow
+    }
   }
 }

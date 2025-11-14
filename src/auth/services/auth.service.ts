@@ -244,4 +244,137 @@ export class AuthService {
 
     return { message: 'Verification email sent successfully' };
   }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      // dù có tồn tại mail hay không đều phải thông báo tương tự để tránh lộ thông tin
+      return { message: 'If email exists, reset link will be sent' };
+    }
+
+    // tạo reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date();
+    resetExpires.setHours(resetExpires.getHours() + 1); //token tồn tại 1 giờ
+
+    user.reset_password_token = resetToken;
+    user.reset_password_token_expires = resetExpires;
+    await this.userRepository.save(user);
+
+    try {
+      await this.mailService.sendResetPasswordEmail(user.email, user.name, resetToken);
+    } catch (error) {
+      console.error('Failed to send reset password email:', error);
+    }
+
+    return { message: 'If email exists, reset link will be sent' };
+  }
+
+  async resetPassword(
+    token: string,
+    newPassword: string,
+    confirmPassword: string,
+  ): Promise<{ message: string }> {
+    // Validate inputs
+    if (!token || !newPassword || !confirmPassword) {
+      throw new BadRequestException('Token, new password, and confirm password are required');
+    }
+
+    if (newPassword.trim() !== confirmPassword.trim()) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    if (newPassword.trim().length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { reset_password_token: token },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid reset token');
+    }
+
+    if (!user.reset_password_token_expires || user.reset_password_token_expires < new Date()) {
+      throw new BadRequestException('Reset token has expired');
+    }
+
+    // ktr xem passwork mới có khác pass cũ ko
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException('New password must be different from your current password');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.reset_password_token = undefined;
+    user.reset_password_token_expires = undefined;
+    await this.userRepository.save(user);
+
+    return { message: 'Password reset successfully. You can now login with your new password.' };
+  }
+
+  async validateResetToken(token: string): Promise<{ valid: boolean; message: string }> {
+    const user = await this.userRepository.findOne({
+      where: { reset_password_token: token },
+    });
+
+    if (!user) {
+      return { valid: false, message: 'Invalid reset token' };
+    }
+
+    if (!user.reset_password_token_expires || user.reset_password_token_expires < new Date()) {
+      return { valid: false, message: 'Reset token has expired' };
+    }
+
+    return { valid: true, message: 'Token is valid' };
+  }
+
+  async updatePassword(
+    userId: number,
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+  ): Promise<{ message: string }> {
+    // Validate inputs
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      throw new BadRequestException('All password fields are required');
+    }
+
+    if (newPassword.trim() !== confirmPassword.trim()) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    if (newPassword.trim().length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException('New password must be different from your current password');
+    }
+
+    // Hash and save new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    return { message: 'Password updated successfully' };
+  }
 }
