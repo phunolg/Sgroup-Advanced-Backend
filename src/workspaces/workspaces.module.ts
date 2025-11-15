@@ -7,9 +7,15 @@ import { WorkspaceMember } from './entities/workspace-member.entity';
 import { MailModule } from 'src/mail/mail.module';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
 import { AuthModule } from 'src/auth/auth.module';
+import { RedisModule } from 'src/common/redis.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Workspace, WorkspaceMember]), MailModule, AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Workspace, WorkspaceMember]),
+    MailModule,
+    AuthModule,
+    RedisModule,
+  ],
   controllers: [WorkspacesController],
   providers: [WorkspacesService, WorkspaceRoleGuard],
   exports: [WorkspacesService],

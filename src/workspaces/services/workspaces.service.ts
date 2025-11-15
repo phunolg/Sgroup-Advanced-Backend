@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workspace } from '../entities/workspace.entity';
@@ -6,6 +6,9 @@ import { CreateWorkspaceDto, UpdateWorkspaceDto } from '../dto';
 import { User } from 'src/users/entities/user.entity';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { MailService } from 'src/mail/mail.service';
+import * as crypto from 'crypto';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from 'src/common/redis.module';
 
 @Injectable()
 export class WorkspacesService {
@@ -13,6 +16,7 @@ export class WorkspacesService {
     @InjectRepository(Workspace)
     private readonly repo: Repository<Workspace>,
     private readonly mailService: MailService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   async create(dto: CreateWorkspaceDto, userId: number): Promise<Workspace> {
@@ -53,7 +57,7 @@ export class WorkspacesService {
   }
 
   // add member to workspace
-  async addMember(workspaceId: string, userId: number): Promise<void> {
+  async addMember(workspaceId: string, email: string, inviterId: number): Promise<void> {
     // ensure workspace exists
     const workspace = await this.repo.findOne({ where: { id: workspaceId } });
     if (!workspace) {
@@ -61,28 +65,37 @@ export class WorkspacesService {
     }
 
     const memberRepo = this.repo.manager.getRepository(WorkspaceMember);
+    const userRepo = this.repo.manager.getRepository(User);
 
+    // ensure user exists
+    const userInfo = await userRepo.findOne({ where: { email } });
+    if (!userInfo) {
+      throw new NotFoundException('User not found');
+    }
     // check existing membership directly in member repo
     const memberExists = await memberRepo.findOne({
-      where: { workspace_id: workspaceId, user_id: userId },
+      where: { workspace_id: workspaceId, user_id: userInfo.id },
     });
     if (memberExists) {
       throw new BadRequestException('User is already a member of this workspace');
     }
 
-    // create + save new member via its repository
-    const newMember = memberRepo.create({
-      workspace_id: workspaceId,
-      user_id: userId,
-      role: 'member',
-    });
-
-    // verify target user exists
-    const userRepo = this.repo.manager.getRepository(User);
-    const userInfo = await userRepo.findOne({ where: { id: userId } });
-    if (!userInfo) {
-      throw new NotFoundException('User not found');
+    const inviter = await userRepo.findOne({ where: { id: inviterId } });
+    if (!inviter) {
+      throw new NotFoundException('Inviter not found');
     }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    // save token in redis has expired 3 days
+    const key = `workspace_invite:${userInfo.email}`;
+    const value = token;
+    await this.redis.setex(key, 3 * 24 * 60 * 60, value);
+
+    const newMember = new WorkspaceMember();
+    newMember.workspace_id = workspaceId;
+    newMember.user_id = userInfo.id;
+    newMember.role = 'member'; // default role
+    newMember.status = 'pending';
 
     await memberRepo.save(newMember);
 
@@ -91,8 +104,134 @@ export class WorkspacesService {
       userInfo.email,
       userInfo.name,
       workspace.name,
-      undefined,
+      // owner name
+      inviter.name || 'Team',
+      token,
     );
+  }
+
+  // Accept invitation
+  async acceptInvitation(token: string): Promise<{ message: string }> {
+    // Tìm email từ token trong Redis
+    const keys = await this.redis.keys('workspace_invite:*');
+    let userEmail: string | null = null;
+
+    for (const key of keys) {
+      const value = await this.redis.get(key);
+      if (value === token) {
+        userEmail = key.replace('workspace_invite:', '');
+        break;
+      }
+    }
+
+    if (!userEmail) {
+      throw new BadRequestException('Invalid or expired invitation token');
+    }
+
+    const memberRepo = this.repo.manager.getRepository(WorkspaceMember);
+
+    const member = await memberRepo.findOne({
+      where: {
+        user: { email: userEmail },
+        status: 'pending',
+      },
+      relations: ['workspace', 'user'],
+    });
+
+    if (!member) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    if (member.status !== 'pending') {
+      throw new BadRequestException(`Invitation already ${member.status}`);
+    }
+
+    // Update status to accepted
+    member.status = 'accepted';
+    await memberRepo.save(member);
+
+    // Tìm owner
+    const ownerMember = await memberRepo.findOne({
+      where: {
+        workspace_id: member.workspace!.id,
+        role: 'owner',
+      },
+      relations: ['user'],
+    });
+
+    // Gửi email chào mừng với non-null assertion
+    try {
+      await this.mailService.sendWelcomeToWorkspace(
+        member.user!.email,
+        member.user!.name,
+        member.workspace!.name,
+        member.role,
+        ownerMember?.user?.name || 'Team',
+        member.workspace!.id,
+      );
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+    }
+
+    // Clear token from Redis
+    const key = `workspace_invite:${userEmail}`;
+    await this.redis.del(key);
+
+    return {
+      message: 'Invitation accepted successfully',
+    };
+  }
+
+  // Reject invitation
+  async rejectInvitation(token: string): Promise<{ message: string }> {
+    // Tìm email từ token trong Redis
+    const keys = await this.redis.keys('workspace_invite:*');
+    let userEmail: string | null = null;
+
+    // Duyệt qua các keys để tìm key nào có value = token
+    for (const key of keys) {
+      const value = await this.redis.get(key);
+      if (value === token) {
+        // Extract email from key: workspace_invite:email@example.com
+        userEmail = key.replace('workspace_invite:', '');
+        break;
+      }
+    }
+
+    if (!userEmail) {
+      throw new BadRequestException('Invalid or expired invitation token');
+    }
+
+    const memberRepo = this.repo.manager.getRepository(WorkspaceMember);
+
+    // Tìm member với email và status pending
+    const member = await memberRepo.findOne({
+      where: {
+        user: { email: userEmail },
+        status: 'pending',
+      },
+      relations: ['workspace', 'user'],
+    });
+
+    if (!member) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    if (member.status !== 'pending') {
+      throw new BadRequestException(`Invitation already ${member.status}`);
+    }
+
+    // Update status to rejected
+    member.status = 'declined';
+    await memberRepo.save(member);
+
+    // Clear token from Redis
+    const key = `workspace_invite:${userEmail}`;
+    await this.redis.del(key);
+
+    return {
+      message: 'Invitation rejected successfully',
+    };
   }
 
   // Lấy các workspace mà user hiện tại tham gia
@@ -100,11 +239,36 @@ export class WorkspacesService {
     const memberRepo = this.repo.manager.getRepository(WorkspaceMember);
 
     const memberships = await memberRepo.find({
-      where: { user_id: userId },
-      relations: ['workspace'],
+      where: { user_id: userId, status: 'accepted' },
+      relations: ['workspace', 'workspace.members', 'workspace.members.user'],
     });
 
-    return memberships.map((m) => m.workspace).filter((w) => w !== undefined);
+    return memberships
+      .map((m) => m.workspace)
+      .filter((w) => w !== undefined)
+      .map((workspace): any => {
+        const acceptedMembers = workspace.members?.filter((m) => m.status === 'accepted') || [];
+        const owner = acceptedMembers.find((m) => m.role === 'owner');
+        return {
+          ...workspace,
+          owner: owner?.user
+            ? {
+                id: owner.user.id,
+                name: owner.user.name,
+                email: owner.user.email,
+                avatar_url: owner.user.avatar_url,
+              }
+            : null,
+          members:
+            acceptedMembers.map((member) => ({
+              id: member.user?.id,
+              name: member.user?.name,
+              email: member.user?.email,
+              avatar_url: member.user?.avatar_url,
+              role: member.role,
+            })) || [],
+        };
+      });
   }
 
   // Chuyển đổi trạng thái của workspace (active/inactive)
@@ -114,7 +278,7 @@ export class WorkspacesService {
     if (!workspaceFound) throw new NotFoundException('Workspace not found');
 
     // toggle status
-    workspaceFound.is_active = !workspaceFound.is_active;
+    workspaceFound.archive = !workspaceFound.archive;
 
     // save changes
     const saveChanges = await this.repo.save(workspaceFound);

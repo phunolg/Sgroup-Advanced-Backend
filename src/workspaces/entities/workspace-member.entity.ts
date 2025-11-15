@@ -18,6 +18,10 @@ export class WorkspaceMember {
   @Column({ type: 'text' })
   role!: 'owner' | 'admin' | 'member';
 
+  @ApiProperty({ example: 'pending' })
+  @Column({ type: 'text', default: 'pending' })
+  status!: 'pending' | 'accepted' | 'declined';
+
   @ApiProperty()
   @Column({ type: 'timestamptz', default: () => 'now()' })
   joined_at!: Date;
