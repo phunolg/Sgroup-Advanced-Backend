@@ -5,10 +5,19 @@ import { openAPIRouter } from './api-docs/openAPIRouter';
 import * as fs from 'node:fs';
 import * as dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import { ValidationPipe } from '@nestjs/common';
 dotenv.config();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Enable global validation: strip unknown props and optionally reject them
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
   app.use(cookieParser());
 
   app.enableCors({
