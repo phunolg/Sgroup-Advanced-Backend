@@ -20,7 +20,7 @@ export class Workspace extends BaseEntityTimestamps {
 
   @ApiProperty({ example: true })
   @Column({ type: 'boolean', default: true })
-  is_active!: boolean;
+  archive!: boolean;
 
   @ApiProperty({ example: false })
   @Column({ type: 'boolean', default: false })
