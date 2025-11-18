@@ -9,8 +9,8 @@ export class CardMember {
   @PrimaryColumn({ type: 'bigint' })
   card_id!: string;
 
-  @ApiProperty({ example: '1' })
-  @PrimaryColumn({ type: 'bigint' })
+  @ApiProperty({ example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' })
+  @PrimaryColumn({ type: 'uuid' })
   @Index('idx_card_members_user')
   user_id!: string;
 

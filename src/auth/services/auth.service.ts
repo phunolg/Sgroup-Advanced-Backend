@@ -267,7 +267,7 @@ export class AuthService {
     await this.userRepository.save(user);
 
     try {
-      await this.mailService.sendResetPasswordEmail(user.email, user.name, resetToken);
+      this.mailService.sendResetPasswordEmail(user.email, user.name, resetToken);
     } catch (error) {
       console.error('Failed to send reset password email:', error);
     }
@@ -292,7 +292,7 @@ export class AuthService {
     if (newPassword.trim().length < 6) {
       throw new BadRequestException('Password must be at least 6 characters');
     }
-
+    // Kiểm tra token
     const user = await this.userRepository.findOne({
       where: { reset_password_token: token },
     });
@@ -313,6 +313,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
+    //Xóa token reset
     user.reset_password_token = undefined;
     user.reset_password_token_expires = undefined;
     await this.userRepository.save(user);
@@ -337,7 +338,7 @@ export class AuthService {
   }
 
   async updatePassword(
-    userId: number,
+    userId: string,
     currentPassword: string,
     newPassword: string,
     confirmPassword: string,

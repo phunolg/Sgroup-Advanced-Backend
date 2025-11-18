@@ -19,7 +19,7 @@ export class UsersService {
     private readonly mailService: MailService,
   ) {}
 
-  async findById(id: number): Promise<Omit<User, 'password' | 'verification_token'>> {
+  async findById(id: string): Promise<Omit<User, 'password' | 'verification_token'>> {
     console.log('Service findById called with:', id, 'Type:', typeof id);
 
     const user = await this.userRepository.findOne({
@@ -72,7 +72,7 @@ export class UsersService {
     return users;
   }
 
-  async updateById(id: number, updateUserDto: UpdateUserDto): Promise<any> {
+  async updateById(id: string, updateUserDto: UpdateUserDto): Promise<any> {
     const user = await this.userRepository.findOne({ where: { id, is_deleted: false } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -137,7 +137,7 @@ export class UsersService {
     };
   }
 
-  async deleteById(id: number): Promise<void> {
+  async deleteById(id: string): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id, is_deleted: false } });
     if (!user) {
       throw new NotFoundException('User not found');
