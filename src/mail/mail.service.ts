@@ -68,7 +68,8 @@ export class MailService {
     email: string,
     name: string,
     workspaceName: string,
-    invitedBy?: string,
+    invitedBy: string,
+    token: string,
   ): Promise<void> {
     try {
       await this.mailerService.sendMail({
@@ -79,12 +80,42 @@ export class MailService {
           name,
           workspaceName,
           invitedBy: invitedBy || 'Team',
-          workspaceUrl: `${this.configService.get('APP_URL', 'http://localhost:5000')}/workspaces`,
+          acceptInvite: `${this.configService.get('APP_URL', 'http://localhost:5000')}/api/workspaces/accept-invitation?token=${token}`,
+          rejectInvite: `${this.configService.get('APP_URL', 'http://localhost:5000')}/api/workspaces/reject-invitation?token=${token}`,
         },
       });
     } catch (error) {
       console.error('Failed to send workspace notification email:', error);
       // Don't throw error to avoid breaking the add member flow
+    }
+  }
+
+  async sendWelcomeToWorkspace(
+    email: string,
+    userName: string,
+    workspaceName: string,
+    userRole: string,
+    invitedBy: string,
+    workspaceId: string,
+  ): Promise<void> {
+    const workspaceUrl = `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/api/workspaces/${workspaceId}`;
+
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: `Welcome to ${workspaceName}!`,
+        template: 'welcome-to-workspace',
+        context: {
+          userName,
+          workspaceName,
+          userRole,
+          invitedBy,
+          workspaceUrl,
+        },
+      });
+      console.log(`✅ Welcome email sent to ${email}`);
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
     }
   }
 }

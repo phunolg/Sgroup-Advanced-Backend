@@ -1,6 +1,17 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Body,
+  Delete,
+  ValidationPipe,
+  Patch,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 import { UsersService } from '../services/users.service';
+import { UpdateUserDto } from '../dto';
+import { UpdateUserResponseDto } from '../dto/update-user-response.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -22,5 +33,27 @@ export class UsersController {
   async getUserById(@Param('id', ParseIntPipe) id: number) {
     console.log('Looking for user with ID:', id, 'Type:', typeof id);
     return this.usersService.findById(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID (number)', type: 'integer' })
+  @ApiResponse({ status: 200, description: 'User updated', type: UpdateUserResponseDto })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async updateUserById(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+    updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.updateById(id, updateUserDto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID (number)', type: 'integer' })
+  @ApiResponse({ status: 200, description: 'User deleted' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async deleteUserById(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.deleteById(id);
   }
 }

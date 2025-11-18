@@ -12,6 +12,7 @@ import { HealthController } from './health/health.controller';
 import { typeormConfig } from './common/typeorm.config';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { RedisModule } from './common/redis.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     BoardsModule,
     CardsModule,
     AuthModule,
+    RedisModule,
   ],
   controllers: [HealthController],
   providers: [
