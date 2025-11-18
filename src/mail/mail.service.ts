@@ -48,7 +48,7 @@ export class MailService {
     const resetUrl = `${this.configService.get('APP_URL', 'http://localhost:5000')}/auth/reset-password?token=${token}`;
 
     try {
-      await this.mailerService.sendMail({
+      this.mailerService.sendMail({
         to: email,
         subject: 'Reset your Sgroup password',
         template: 'reset-password',

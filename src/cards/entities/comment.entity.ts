@@ -19,7 +19,7 @@ export class Comment {
   card?: Card;
 
   @ApiProperty()
-  @Column({ type: 'bigint', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   author_id?: string;
 
   @ManyToOne(() => User, (u) => u.comments, { onDelete: 'SET NULL' })

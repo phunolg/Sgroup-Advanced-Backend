@@ -19,7 +19,7 @@ export class WorkspacesService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  async create(dto: CreateWorkspaceDto, userId: number): Promise<Workspace> {
+  async create(dto: CreateWorkspaceDto, userId: string): Promise<Workspace> {
     const entity = this.repo.create({ ...dto });
 
     const savedWorkspace = await this.repo.save(entity);
@@ -57,7 +57,7 @@ export class WorkspacesService {
   }
 
   // add member to workspace
-  async addMember(workspaceId: string, email: string, inviterId: number): Promise<void> {
+  async addMember(workspaceId: string, email: string, inviterId: string): Promise<void> {
     // ensure workspace exists
     const workspace = await this.repo.findOne({ where: { id: workspaceId } });
     if (!workspace) {
@@ -235,7 +235,7 @@ export class WorkspacesService {
   }
 
   // Lấy các workspace mà user hiện tại tham gia
-  async findWorkspacesForUser(userId: number): Promise<Workspace[]> {
+  async findWorkspacesForUser(userId: string): Promise<Workspace[]> {
     const memberRepo = this.repo.manager.getRepository(WorkspaceMember);
 
     const memberships = await memberRepo.find({

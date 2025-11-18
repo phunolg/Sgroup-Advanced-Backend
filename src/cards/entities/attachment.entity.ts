@@ -20,7 +20,7 @@ export class Attachment {
   card?: Card;
 
   @ApiProperty()
-  @Column({ type: 'bigint', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   uploader_id?: string;
 
   @ManyToOne(() => User, (u) => u.attachments, { onDelete: 'SET NULL' })

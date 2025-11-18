@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Body,
-  Delete,
-  ValidationPipe,
-  Patch,
-} from '@nestjs/common';
+import { Controller, Get, Param, Body, Delete, ValidationPipe, Patch } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 import { UsersService } from '../services/users.service';
 import { UpdateUserDto } from '../dto';
@@ -27,21 +18,21 @@ export class UsersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
-  @ApiParam({ name: 'id', description: 'User ID (number)', type: 'integer' })
+  @ApiParam({ name: 'id', description: 'User ID (UUID)', type: 'string' })
   @ApiResponse({ status: 200, description: 'User found' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async getUserById(@Param('id', ParseIntPipe) id: number) {
+  async getUserById(@Param('id') id: string) {
     console.log('Looking for user with ID:', id, 'Type:', typeof id);
     return this.usersService.findById(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update user by ID' })
-  @ApiParam({ name: 'id', description: 'User ID (number)', type: 'integer' })
+  @ApiParam({ name: 'id', description: 'User ID (UUID)', type: 'string' })
   @ApiResponse({ status: 200, description: 'User updated', type: UpdateUserResponseDto })
   @ApiResponse({ status: 404, description: 'User not found' })
   async updateUserById(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
     updateUserDto: UpdateUserDto,
   ) {
@@ -50,10 +41,10 @@ export class UsersController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete user by ID' })
-  @ApiParam({ name: 'id', description: 'User ID (number)', type: 'integer' })
+  @ApiParam({ name: 'id', description: 'User ID (UUID)', type: 'string' })
   @ApiResponse({ status: 200, description: 'User deleted' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async deleteUserById(@Param('id', ParseIntPipe) id: number) {
+  async deleteUserById(@Param('id') id: string) {
     return this.usersService.deleteById(id);
   }
 }

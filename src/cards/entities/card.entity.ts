@@ -48,7 +48,7 @@ export class Card {
   // composite index list_id + position for fast ordering
   @Index('idx_cards_list_pos1', ['list_id', 'position'])
   @ApiProperty()
-  @Column({ type: 'bigint', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   created_by?: string;
 
   @ManyToOne(() => User, (u) => u.cardsCreated, { onDelete: 'SET NULL' })
