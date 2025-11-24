@@ -1,8 +1,19 @@
-import { Controller, Get, Param, Body, Delete, ValidationPipe, Patch } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Param,
+  Body,
+  Delete,
+  ValidationPipe,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from '../services/users.service';
-import { UpdateUserDto } from '../dto';
+import { UpdateUserDto, CurrentUserResponseDto } from '../dto';
 import { UpdateUserResponseDto } from '../dto/update-user-response.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Users')
 @Controller('users')
@@ -14,6 +25,20 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'List of users' })
   async getAllUsers() {
     return this.usersService.findAll();
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user information' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current user information',
+    type: CurrentUserResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getCurrentUser(@CurrentUser() user: any): Promise<CurrentUserResponseDto> {
+    return this.usersService.findById(user.sub);
   }
 
   @Get(':id')
