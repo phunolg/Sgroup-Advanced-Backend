@@ -66,7 +66,6 @@ export class BoardsService {
     await this.checkBoardAccess(id, userId);
     const board = await this.boardRepository.findOne({
       where: { id },
-      relations: ['members', 'members.user', 'lists', 'workspace'],
     });
     if (!board) {
       throw new NotFoundException(`Board with ID ${id} not found`);
@@ -77,7 +76,13 @@ export class BoardsService {
   async update(id: string, updateBoardDto: UpdateBoardDto, userId: string): Promise<Board> {
     await this.checkBoardAccess(id, userId, 'owner');
     await this.boardRepository.update(id, updateBoardDto);
-    return this.findOne(id, userId);
+    const updatedBoard = await this.boardRepository.findOne({
+      where: { id },
+    });
+    if (!updatedBoard) {
+      throw new NotFoundException(`Board with ID ${id} not found`);
+    }
+    return updatedBoard;
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -220,8 +225,9 @@ export class BoardsService {
     requiredRole?: 'owner' | 'member',
   ): Promise<void> {
     const member = await this.boardMemberRepository.findOne({
-      where: { board_id: boardId, user_id: userId },
+      where: { board_id: String(boardId), user_id: userId },
     });
+
     if (!member) {
       throw new ForbiddenException('You do not have access to this board');
     }
