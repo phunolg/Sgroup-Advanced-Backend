@@ -22,10 +22,6 @@ export class CreateBoardGuard implements CanActivate {
     const userId = user.sub; // UUID của user
     const workspaceId = body.workspace_id;
 
-    console.log('CreateBoardGuard Debug:');
-    console.log('- userId:', userId, typeof userId);
-    console.log('- workspaceId:', workspaceId, typeof workspaceId);
-
     const memberRepo = this.dataSource.getRepository(WorkspaceMember);
     const membership = await memberRepo.findOne({
       where: {
