@@ -287,4 +287,74 @@ export class WorkspacesService {
 
     return saveChanges;
   }
+
+  // change member role in workspace
+  async changeMemberRole(
+    workspaceId: string,
+    userId: string,
+    newRole: string,
+  ): Promise<{ message: string; success: true }> {
+    const memberRepo = this.repo.manager.getRepository(WorkspaceMember);
+
+    const validRoles = ['owner', 'admin', 'member'] as const;
+    if (!validRoles.includes(newRole as any)) {
+      throw new BadRequestException('Invalid role');
+    }
+
+    // ensure user is a member of the workspace
+    const foundMember = await memberRepo.findOne({
+      where: { workspace_id: workspaceId, user_id: userId, status: 'accepted' },
+    });
+
+    if (!foundMember) {
+      throw new NotFoundException('User is not a member of the workspace');
+    }
+
+    // update role
+    foundMember.role = newRole as (typeof validRoles)[number];
+    await memberRepo.save(foundMember);
+
+    return { message: 'Member role updated successfully', success: true };
+  }
+
+  // owner assign "Create Board" permission in workspace
+  async assignPermissionsToMember(
+    workspaceId: string,
+    userId: string,
+    permissions: string[],
+  ): Promise<WorkspaceMember> {
+    const memberRepo = this.repo.manager.getRepository(WorkspaceMember);
+
+    // ensure user is a member of the workspace
+    const foundMember = await memberRepo.findOne({
+      where: { workspace_id: workspaceId, user_id: userId, status: 'accepted' },
+    });
+
+    if (!foundMember) {
+      throw new NotFoundException('User is not a member of the workspace');
+    }
+
+    // ensure permission array is not empty
+    if (permissions.length === 0) {
+      throw new BadRequestException('Permissions array cannot be empty');
+    }
+    // kiểm tra quyền không trùng lặp
+    const existingPermissions = foundMember.permissions || [];
+    const duplicatePermissions = permissions.filter((perm) => existingPermissions.includes(perm));
+    if (duplicatePermissions.length > 0) {
+      throw new BadRequestException(`Duplicate permissions: ${duplicatePermissions.join(', ')}`);
+    }
+
+    // validate permission: quyền có dạng là 'action:resource' ví dụ 'create:board'
+    const isValidPermission = permissions.every((perm) => /^(\w+):(\w+)$/.test(perm));
+    if (!isValidPermission) {
+      throw new BadRequestException('Invalid permission format');
+    }
+
+    // assign permission
+    foundMember.permissions = Array.from(
+      new Set([...(foundMember.permissions || []), ...permissions]),
+    );
+    return memberRepo.save(foundMember);
+  }
 }
