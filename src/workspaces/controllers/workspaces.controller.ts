@@ -21,11 +21,20 @@ import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator'
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
 import { Public } from 'src/common/decorators/public.decorator';
+import { WorkspaceMember } from '../entities/workspace-member.entity';
 
 @ApiTags('Workspaces')
 @Controller('api/workspaces')
 export class WorkspacesController {
   constructor(private readonly service: WorkspacesService) {}
+
+  // api test role
+  @UseGuards(JwtAuthGuard, WorkspaceRoleGuard)
+  @Get('test-role/:workspaceId')
+  @WorkspaceRoles('member')
+  async testRoleGuard(): Promise<{ message: string }> {
+    return { message: 'You have access based on your workspace role' };
+  }
 
   // Accept invitation
   @Public()
@@ -110,5 +119,29 @@ export class WorkspacesController {
   @Patch('status/:id')
   async toggleStatus(@Param('id') id: string): Promise<Workspace> {
     return this.service.toggleWorkspaceStatus(id);
+  }
+
+  // change member role (E.g., from member to owner)
+  @ApiOperation({ summary: 'Change member role in workspace' })
+  @UseGuards(JwtAuthGuard, WorkspaceRoleGuard)
+  @WorkspaceRoles('owner')
+  @Patch('members/:workspaceId/role')
+  async changeMemberRole(
+    @Param('workspaceId') workspaceId: string,
+    @Body() body: { memberId: string; newRole: 'member' | 'owner' },
+  ): Promise<{ message: string; success: true }> {
+    return this.service.changeMemberRole(workspaceId, body.memberId, body.newRole);
+  }
+
+  // assign permission to member in workspace
+  @ApiOperation({ summary: 'Assign permissions to member in workspace' })
+  @UseGuards(JwtAuthGuard, WorkspaceRoleGuard)
+  @WorkspaceRoles('owner')
+  @Patch('members/:workspaceId/permissions')
+  async assignPermissionsToMember(
+    @Param('workspaceId') workspaceId: string,
+    @Body() body: { memberId: string; permissions: string[] },
+  ): Promise<WorkspaceMember> {
+    return this.service.assignPermissionsToMember(workspaceId, body.memberId, body.permissions);
   }
 }

@@ -22,6 +22,10 @@ export class WorkspaceMember {
   @Column({ type: 'text', default: 'pending' })
   status!: 'pending' | 'accepted' | 'declined';
 
+  @ApiProperty({ example: ['read:boards', 'write:cards'] })
+  @Column({ type: 'text', array: true, default: [] })
+  permissions!: string[];
+
   @ApiProperty()
   @Column({ type: 'timestamptz', default: () => 'now()' })
   joined_at!: Date;
