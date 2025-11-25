@@ -15,6 +15,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { BoardsService } from '../services/boards.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CreateBoardGuard } from '../guards/create-board.guard';
 import {
   CreateBoardDto,
   UpdateBoardDto,
@@ -35,8 +36,11 @@ export class BoardsController {
 
   // ============ Boards CRUD ============
   @Post()
-  @ApiOperation({ summary: 'Create a new board' })
+  @UseGuards(CreateBoardGuard)
+  @ApiOperation({ summary: 'Create a new board (workspace owner only)' })
   @ApiResponse({ status: 201, description: 'Board created successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - only workspace owners can create boards' })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
   async create(
     @Body(new ValidationPipe({ transform: true, whitelist: true })) createBoardDto: CreateBoardDto,
     @Request() req: any,

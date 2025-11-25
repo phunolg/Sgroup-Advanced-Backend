@@ -29,6 +29,7 @@ export class WorkspacesService {
     // userid lấy từ token lưu ở cookies
     ownerMember.user_id = userId;
     ownerMember.role = 'owner';
+    ownerMember.status = 'accepted'; // Creator tự động accepted
     savedWorkspace.members = [...(savedWorkspace.members || []), ownerMember];
     // save to db
     await this.repo.manager.getRepository(WorkspaceMember).save(ownerMember);

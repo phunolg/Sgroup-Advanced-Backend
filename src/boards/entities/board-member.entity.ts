@@ -14,9 +14,9 @@ export class BoardMember {
   @Index('idx_board_members_user')
   user_id!: string;
 
-  @ApiProperty({ example: 'admin' })
-  @Column({ type: 'text', default: 'normal' })
-  role!: 'admin' | 'normal' | 'observer';
+  @ApiProperty({ example: 'owner' })
+  @Column({ type: 'text', default: 'member' })
+  role!: 'owner' | 'member';
 
   @ApiProperty()
   @Column({ type: 'timestamptz', default: () => 'now()' })

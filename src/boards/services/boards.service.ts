@@ -5,6 +5,8 @@ import { Board } from '../entities/board.entity';
 import { BoardMember } from '../entities/board-member.entity';
 import { List } from '../entities/list.entity';
 import { Label } from '../entities/label.entity';
+import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 import {
   CreateBoardDto,
   UpdateBoardDto,
@@ -27,6 +29,10 @@ export class BoardsService {
     private readonly listRepository: Repository<List>,
     @InjectRepository(Label)
     private readonly labelRepository: Repository<Label>,
+    @InjectRepository(WorkspaceMember)
+    private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepository: Repository<Workspace>,
   ) {}
 
   // Boards CRUD
@@ -37,11 +43,11 @@ export class BoardsService {
     });
     const savedBoard = await this.boardRepository.save(board);
 
-    // Automatically add creator as admin member
+    // tự động thêm người tạo làm owner của board
     await this.boardMemberRepository.save({
       board_id: savedBoard.id,
       user_id: userId,
-      role: 'admin',
+      role: 'owner',
     });
 
     return savedBoard;
@@ -69,19 +75,19 @@ export class BoardsService {
   }
 
   async update(id: string, updateBoardDto: UpdateBoardDto, userId: string): Promise<Board> {
-    await this.checkBoardAccess(id, userId, 'admin');
+    await this.checkBoardAccess(id, userId, 'owner');
     await this.boardRepository.update(id, updateBoardDto);
     return this.findOne(id, userId);
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    await this.checkBoardAccess(id, userId, 'admin');
+    await this.checkBoardAccess(id, userId, 'owner');
     await this.boardRepository.delete(id);
   }
 
   // Board Members
   async addMember(boardId: string, dto: AddBoardMemberDto, userId: string): Promise<BoardMember> {
-    await this.checkBoardAccess(boardId, userId, 'admin');
+    await this.checkBoardAccess(boardId, userId, 'owner');
     const member = this.boardMemberRepository.create({
       board_id: boardId,
       user_id: dto.user_id,
@@ -96,7 +102,7 @@ export class BoardsService {
     dto: UpdateBoardMemberDto,
     userId: string,
   ): Promise<BoardMember> {
-    await this.checkBoardAccess(boardId, userId, 'admin');
+    await this.checkBoardAccess(boardId, userId, 'owner');
     await this.boardMemberRepository.update(
       { board_id: boardId, user_id: memberId },
       { role: dto.role },
@@ -112,7 +118,7 @@ export class BoardsService {
   }
 
   async removeMember(boardId: string, memberId: string, userId: string): Promise<void> {
-    await this.checkBoardAccess(boardId, userId, 'admin');
+    await this.checkBoardAccess(boardId, userId, 'owner');
     await this.boardMemberRepository.delete({ board_id: boardId, user_id: memberId });
   }
 
@@ -211,7 +217,7 @@ export class BoardsService {
   private async checkBoardAccess(
     boardId: string,
     userId: string,
-    requiredRole?: 'admin' | 'normal' | 'observer',
+    requiredRole?: 'owner' | 'member',
   ): Promise<void> {
     const member = await this.boardMemberRepository.findOne({
       where: { board_id: boardId, user_id: userId },
@@ -219,8 +225,8 @@ export class BoardsService {
     if (!member) {
       throw new ForbiddenException('You do not have access to this board');
     }
-    if (requiredRole === 'admin' && member.role !== 'admin') {
-      throw new ForbiddenException('Admin access required');
+    if (requiredRole === 'owner' && member.role !== 'owner') {
+      throw new ForbiddenException('Owner access required');
     }
   }
 }
