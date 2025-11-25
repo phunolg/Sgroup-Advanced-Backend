@@ -7,13 +7,13 @@ import {
   ValidationPipe,
   Patch,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from '../services/users.service';
 import { UpdateUserDto, CurrentUserResponseDto } from '../dto';
 import { UpdateUserResponseDto } from '../dto/update-user-response.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Users')
 @Controller('users')
@@ -37,8 +37,8 @@ export class UsersController {
     type: CurrentUserResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getCurrentUser(@CurrentUser() user: any): Promise<CurrentUserResponseDto> {
-    return this.usersService.findById(user.sub);
+  async getMe(@Req() req: any) {
+    return this.usersService.findById(req.user.sub);
   }
 
   @Get(':id')

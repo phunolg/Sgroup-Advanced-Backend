@@ -30,15 +30,15 @@ export class AddBoardMemberDto {
   @IsString()
   user_id!: string;
 
-  @ApiProperty({ example: 'normal', enum: ['admin', 'normal', 'observer'] })
-  @IsIn(['admin', 'normal', 'observer'])
-  role!: 'admin' | 'normal' | 'observer';
+  @ApiProperty({ example: 'member', enum: ['owner', 'member'] })
+  @IsIn(['owner', 'member'])
+  role!: 'owner' | 'member';
 }
 
 export class UpdateBoardMemberDto {
-  @ApiProperty({ example: 'admin', enum: ['admin', 'normal', 'observer'] })
-  @IsIn(['admin', 'normal', 'observer'])
-  role!: 'admin' | 'normal' | 'observer';
+  @ApiProperty({ example: 'member', enum: ['owner', 'member'] })
+  @IsIn(['owner', 'member'])
+  role!: 'owner' | 'member';
 }
 
 export class CreateLabelDto {
