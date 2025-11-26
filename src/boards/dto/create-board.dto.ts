@@ -23,7 +23,7 @@ export class CreateBoardDto {
   })
   @IsString()
   @IsNotEmpty()
-  workspace_id!: string;
+  workspaceId!: string;
 
   @ApiPropertyOptional({ example: false })
   @IsBoolean()

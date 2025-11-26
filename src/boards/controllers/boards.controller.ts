@@ -15,7 +15,6 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { BoardsService } from '../services/boards.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CreateBoardGuard } from '../guards/create-board.guard';
 import {
   CreateBoardDto,
   UpdateBoardDto,
@@ -26,6 +25,13 @@ import {
   CreateLabelDto,
   UpdateLabelDto,
 } from '../dto';
+import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
+import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator';
+import { RequireWorkspacePermissions } from 'src/common/decorators/workspace-permission.decorator';
+import { WorkspacePermission } from 'src/common/enum/permission/workspace-permissions.enum';
+import { BoardPermissionGuard } from 'src/common/guards/board-permission.guard';
+import { BoardRole } from 'src/common/enum/role/board-role.enum';
+import { BoardRoles } from 'src/common/decorators/board-roles.decorator';
 
 @ApiTags('Boards')
 @ApiBearerAuth()
@@ -36,7 +42,10 @@ export class BoardsController {
 
   // ============ Boards CRUD ============
   @Post()
-  @UseGuards(CreateBoardGuard)
+  // @UseGuards(CreateBoardGuard)
+  @UseGuards(WorkspaceRoleGuard)
+  @WorkspaceRoles('owner', 'member')
+  @RequireWorkspacePermissions(WorkspacePermission.CREATE_BOARD)
   @ApiOperation({ summary: 'Create a new board (workspace owner only)' })
   @ApiResponse({ status: 201, description: 'Board created successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden - only workspace owners can create boards' })
@@ -132,6 +141,22 @@ export class BoardsController {
     @Request() req: any,
   ) {
     await this.boardsService.removeMember(id, userId, req.user.sub);
+  }
+
+  // change owner board
+  @ApiOperation({ summary: 'Change board owner' })
+  @ApiParam({ name: 'id', description: 'Board ID' })
+  @ApiParam({ name: 'newOwnerId', description: 'New Owner User ID' })
+  @ApiResponse({ status: 200, description: 'Board owner changed' })
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.OWNER)
+  @Patch(':boardId/change-owner')
+  async changeBoardOwner(
+    @Param('boardId') boardId: string,
+    @Body('newOwnerId') newOwnerId: string,
+    @Request() req: any,
+  ) {
+    return this.boardsService.changeBoardOwner(boardId, newOwnerId, req.user.sub);
   }
 
   // ============ Lists ============

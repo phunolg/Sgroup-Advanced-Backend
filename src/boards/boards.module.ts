@@ -11,6 +11,8 @@ import { List } from './entities/list.entity';
 import { Label } from './entities/label.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
+import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
+import { BoardPermissionGuard } from 'src/common/guards/board-permission.guard';
 
 @Module({
   imports: [
@@ -19,7 +21,7 @@ import { Workspace } from '../workspaces/entities/workspace.entity';
     ConfigModule,
   ],
   controllers: [BoardsController],
-  providers: [BoardsService, CreateBoardGuard],
+  providers: [BoardsService, CreateBoardGuard, WorkspaceRoleGuard, BoardPermissionGuard],
   exports: [BoardsService],
 })
 export class BoardsModule {}

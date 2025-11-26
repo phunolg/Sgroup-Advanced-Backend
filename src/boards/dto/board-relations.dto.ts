@@ -1,5 +1,6 @@
-import { IsString, IsIn } from 'class-validator';
+import { IsString, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { BoardRole } from 'src/common/enum/role/board-role.enum';
 
 export class CreateListDto {
   @ApiProperty({ example: 'To Do' })
@@ -31,14 +32,14 @@ export class AddBoardMemberDto {
   user_id!: string;
 
   @ApiProperty({ example: 'member', enum: ['owner', 'member'] })
-  @IsIn(['owner', 'member'])
-  role!: 'owner' | 'member';
+  @IsEnum(BoardRole)
+  role!: BoardRole;
 }
 
 export class UpdateBoardMemberDto {
   @ApiProperty({ example: 'member', enum: ['owner', 'member'] })
-  @IsIn(['owner', 'member'])
-  role!: 'owner' | 'member';
+  @IsEnum(BoardRole)
+  role!: BoardRole;
 }
 
 export class CreateLabelDto {
