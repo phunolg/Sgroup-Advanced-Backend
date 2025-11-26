@@ -17,6 +17,7 @@ import {
   CreateLabelDto,
   UpdateLabelDto,
 } from '../dto';
+import { BoardRole } from 'src/common/enum/role/board-role.enum';
 
 @Injectable()
 export class BoardsService {
@@ -39,6 +40,7 @@ export class BoardsService {
   async create(createBoardDto: CreateBoardDto, userId: string): Promise<Board> {
     const board = this.boardRepository.create({
       ...createBoardDto,
+      workspace_id: createBoardDto.workspaceId,
       created_by: userId,
     });
     const savedBoard = await this.boardRepository.save(board);
@@ -47,7 +49,7 @@ export class BoardsService {
     await this.boardMemberRepository.save({
       board_id: savedBoard.id,
       user_id: userId,
-      role: 'owner',
+      role: BoardRole.OWNER,
     });
 
     return savedBoard;
@@ -74,7 +76,7 @@ export class BoardsService {
   }
 
   async update(id: string, updateBoardDto: UpdateBoardDto, userId: string): Promise<Board> {
-    await this.checkBoardAccess(id, userId, 'owner');
+    await this.checkBoardAccess(id, userId, BoardRole.OWNER);
     await this.boardRepository.update(id, updateBoardDto);
     const updatedBoard = await this.boardRepository.findOne({
       where: { id },
@@ -86,13 +88,13 @@ export class BoardsService {
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    await this.checkBoardAccess(id, userId, 'owner');
+    await this.checkBoardAccess(id, userId, BoardRole.OWNER);
     await this.boardRepository.delete(id);
   }
 
   // Board Members
   async addMember(boardId: string, dto: AddBoardMemberDto, userId: string): Promise<BoardMember> {
-    await this.checkBoardAccess(boardId, userId, 'owner');
+    await this.checkBoardAccess(boardId, userId, BoardRole.OWNER);
     const member = this.boardMemberRepository.create({
       board_id: boardId,
       user_id: dto.user_id,
@@ -107,7 +109,7 @@ export class BoardsService {
     dto: UpdateBoardMemberDto,
     userId: string,
   ): Promise<BoardMember> {
-    await this.checkBoardAccess(boardId, userId, 'owner');
+    await this.checkBoardAccess(boardId, userId, BoardRole.OWNER);
     await this.boardMemberRepository.update(
       { board_id: boardId, user_id: memberId },
       { role: dto.role },
@@ -123,7 +125,7 @@ export class BoardsService {
   }
 
   async removeMember(boardId: string, memberId: string, userId: string): Promise<void> {
-    await this.checkBoardAccess(boardId, userId, 'owner');
+    await this.checkBoardAccess(boardId, userId, BoardRole.OWNER);
     await this.boardMemberRepository.delete({ board_id: boardId, user_id: memberId });
   }
 
@@ -222,7 +224,7 @@ export class BoardsService {
   private async checkBoardAccess(
     boardId: string,
     userId: string,
-    requiredRole?: 'owner' | 'member',
+    requiredRole?: BoardRole,
   ): Promise<void> {
     const member = await this.boardMemberRepository.findOne({
       where: { board_id: String(boardId), user_id: userId },
@@ -234,5 +236,37 @@ export class BoardsService {
     if (requiredRole === 'owner' && member.role !== 'owner') {
       throw new ForbiddenException('Owner access required');
     }
+  }
+
+  // change owner board
+  async changeBoardOwner(
+    boardId: string,
+    newOwnerId: string,
+    currentOwnerId: string,
+  ): Promise<{ message: string; success: boolean }> {
+    // ensure new owner is a member of the board
+    const newOwner = await this.boardMemberRepository.findOne({
+      where: { board_id: boardId, user_id: newOwnerId },
+    });
+    if (!newOwner) throw new NotFoundException('New owner must be a member of the board');
+
+    // ensure new owner is not already the owner
+    if (newOwner.role === 'owner') throw new ForbiddenException('User is already the owner');
+
+    if (currentOwnerId === newOwnerId) {
+      throw new ForbiddenException('You are already the owner of this board');
+    }
+
+    // update roles
+    await this.boardMemberRepository.update(
+      { board_id: boardId, user_id: newOwnerId },
+      { role: BoardRole.OWNER },
+    );
+    await this.boardMemberRepository.update(
+      { board_id: boardId, user_id: currentOwnerId },
+      { role: BoardRole.MEMBER },
+    );
+
+    return { message: 'Board owner changed successfully', success: true };
   }
 }
