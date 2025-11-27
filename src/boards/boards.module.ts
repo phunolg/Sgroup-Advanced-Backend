@@ -8,10 +8,10 @@ import { Board } from './entities/board.entity';
 import { BoardMember } from './entities/board-member.entity';
 import { List } from './entities/list.entity';
 import { Label } from './entities/label.entity';
-
+import { WorkspaceMember } from 'src/workspaces/entities/workspace-member.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Board, BoardMember, List, Label]),
+    TypeOrmModule.forFeature([Board, BoardMember, List, Label, WorkspaceMember]),
     JwtModule.register({}),
     ConfigModule,
   ],

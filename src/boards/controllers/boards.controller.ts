@@ -24,6 +24,7 @@ import {
   UpdateBoardMemberDto,
   CreateLabelDto,
   UpdateLabelDto,
+  UpdateBoardVisibilityDto,
 } from '../dto';
 
 @ApiTags('Boards')
@@ -70,6 +71,22 @@ export class BoardsController {
     @Request() req: any,
   ) {
     return this.boardsService.update(id, updateBoardDto, req.user.sub);
+  }
+
+  @Patch(':id/visibility')
+  @ApiOperation({ summary: 'Update board visibility (Public/Private)' })
+  @ApiParam({ name: 'id', description: 'Board ID' })
+  @ApiResponse({ status: 200, description: 'Visibility updated successfully' })
+  @ApiResponse({
+    status: 403,
+    description: 'Only Board Owner or Workspace Owner can perform this action',
+  })
+  async updateVisibility(
+    @Param('id') id: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: UpdateBoardVisibilityDto,
+    @Request() req: any,
+  ) {
+    return this.boardsService.updateVisibility(req.user.sub, id, dto.visibility);
   }
 
   @Delete(':id')
