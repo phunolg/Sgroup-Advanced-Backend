@@ -9,6 +9,7 @@ import { Board } from './entities/board.entity';
 import { BoardMember } from './entities/board-member.entity';
 import { List } from './entities/list.entity';
 import { Label } from './entities/label.entity';
+
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';

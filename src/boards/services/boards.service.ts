@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Board } from '../entities/board.entity';
+import { Repository, Brackets } from 'typeorm';
+import { Board, BoardVisibility } from '../entities/board.entity';
 import { BoardMember } from '../entities/board-member.entity';
 import { List } from '../entities/list.entity';
 import { Label } from '../entities/label.entity';
+
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
+
 import {
   CreateBoardDto,
   UpdateBoardDto,
@@ -56,12 +58,22 @@ export class BoardsService {
   }
 
   async findAll(userId: string): Promise<Board[]> {
-    // Find all boards where user is a member
-    const members = await this.boardMemberRepository.find({
-      where: { user_id: userId },
-      relations: ['board'],
-    });
-    return members.map((m) => m.board!).filter(Boolean);
+    return this.boardRepository
+      .createQueryBuilder('board')
+      .leftJoin('board.members', 'bm', 'bm.user_id = :userId', { userId })
+      .leftJoin('board.workspace', 'w')
+      .leftJoin('w.members', 'wm', 'wm.user_id = :userId', { userId })
+      .where(
+        new Brackets((qb) => {
+          qb.where('bm.user_id IS NOT NULL').orWhere(
+            '(board.visibility = :publicStatus AND wm.user_id IS NOT NULL)',
+            { publicStatus: BoardVisibility.PUBLIC },
+          );
+        }),
+      )
+      .andWhere('board.is_close = :isClosed', { isCloses: false })
+      .orderBy('board.created_at', 'DESC')
+      .getMany();
   }
 
   async findOne(id: string, userId: string): Promise<Board> {
@@ -85,6 +97,38 @@ export class BoardsService {
       throw new NotFoundException(`Board with ID ${id} not found`);
     }
     return updatedBoard;
+  }
+
+  async updateVisibility(
+    userId: string,
+    boardId: string,
+    visibility: BoardVisibility,
+  ): Promise<Board> {
+    const board = await this.boardRepository.findOne({
+      where: { id: boardId },
+    });
+
+    if (!board) {
+      throw new NotFoundException(`Board with ID ${boardId} not found`);
+    }
+
+    let hasPermission = board.created_by === userId;
+    if (!hasPermission && board.workspace_id) {
+      const workspaceMember = await this.workspaceMemberRepository.findOne({
+        where: {
+          workspace_id: board.workspace_id,
+          user_id: userId,
+        },
+      });
+      if (workspaceMember && workspaceMember.role === 'owner') {
+        hasPermission = true;
+      }
+    }
+    if (!hasPermission) {
+      throw new ForbiddenException('Only Board Owner or Workspace Owner can change visibility');
+    }
+    await this.boardRepository.update(boardId, { visibility });
+    return { ...board, visibility };
   }
 
   async remove(id: string, userId: string): Promise<void> {
