@@ -1,7 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { Role } from '../roles.enum';
+import { Role } from '../enum/role/roles.enum';
 
 // Guard: ApplicationUserRolesGuard — nơi quyết định cho phép hay chặn request
 // Flow:

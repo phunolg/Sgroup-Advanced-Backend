@@ -5,7 +5,10 @@ import { Board, BoardVisibility } from '../entities/board.entity';
 import { BoardMember } from '../entities/board-member.entity';
 import { List } from '../entities/list.entity';
 import { Label } from '../entities/label.entity';
-import { WorkspaceMember } from 'src/workspaces/entities/workspace-member.entity';
+
+import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
+
 import {
   CreateBoardDto,
   UpdateBoardDto,
@@ -16,6 +19,7 @@ import {
   CreateLabelDto,
   UpdateLabelDto,
 } from '../dto';
+import { BoardRole } from 'src/common/enum/role/board-role.enum';
 
 @Injectable()
 export class BoardsService {
@@ -30,21 +34,24 @@ export class BoardsService {
     private readonly labelRepository: Repository<Label>,
     @InjectRepository(WorkspaceMember)
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepository: Repository<Workspace>,
   ) {}
 
   // Boards CRUD
   async create(createBoardDto: CreateBoardDto, userId: string): Promise<Board> {
     const board = this.boardRepository.create({
       ...createBoardDto,
+      workspace_id: createBoardDto.workspaceId,
       created_by: userId,
     });
     const savedBoard = await this.boardRepository.save(board);
 
-    // Automatically add creator as admin member
+    // tự động thêm người tạo làm owner của board
     await this.boardMemberRepository.save({
       board_id: savedBoard.id,
       user_id: userId,
-      role: 'admin',
+      role: BoardRole.OWNER,
     });
 
     return savedBoard;
@@ -73,7 +80,6 @@ export class BoardsService {
     await this.checkBoardAccess(id, userId);
     const board = await this.boardRepository.findOne({
       where: { id },
-      relations: ['members', 'members.user', 'lists', 'workspace'],
     });
     if (!board) {
       throw new NotFoundException(`Board with ID ${id} not found`);
@@ -82,9 +88,15 @@ export class BoardsService {
   }
 
   async update(id: string, updateBoardDto: UpdateBoardDto, userId: string): Promise<Board> {
-    await this.checkBoardAccess(id, userId, 'admin');
+    await this.checkBoardAccess(id, userId, BoardRole.OWNER);
     await this.boardRepository.update(id, updateBoardDto);
-    return this.findOne(id, userId);
+    const updatedBoard = await this.boardRepository.findOne({
+      where: { id },
+    });
+    if (!updatedBoard) {
+      throw new NotFoundException(`Board with ID ${id} not found`);
+    }
+    return updatedBoard;
   }
 
   async updateVisibility(
@@ -120,13 +132,13 @@ export class BoardsService {
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    await this.checkBoardAccess(id, userId, 'admin');
+    await this.checkBoardAccess(id, userId, BoardRole.OWNER);
     await this.boardRepository.delete(id);
   }
 
   // Board Members
   async addMember(boardId: string, dto: AddBoardMemberDto, userId: string): Promise<BoardMember> {
-    await this.checkBoardAccess(boardId, userId, 'admin');
+    await this.checkBoardAccess(boardId, userId, BoardRole.OWNER);
     const member = this.boardMemberRepository.create({
       board_id: boardId,
       user_id: dto.user_id,
@@ -141,7 +153,7 @@ export class BoardsService {
     dto: UpdateBoardMemberDto,
     userId: string,
   ): Promise<BoardMember> {
-    await this.checkBoardAccess(boardId, userId, 'admin');
+    await this.checkBoardAccess(boardId, userId, BoardRole.OWNER);
     await this.boardMemberRepository.update(
       { board_id: boardId, user_id: memberId },
       { role: dto.role },
@@ -157,7 +169,7 @@ export class BoardsService {
   }
 
   async removeMember(boardId: string, memberId: string, userId: string): Promise<void> {
-    await this.checkBoardAccess(boardId, userId, 'admin');
+    await this.checkBoardAccess(boardId, userId, BoardRole.OWNER);
     await this.boardMemberRepository.delete({ board_id: boardId, user_id: memberId });
   }
 
@@ -256,16 +268,49 @@ export class BoardsService {
   private async checkBoardAccess(
     boardId: string,
     userId: string,
-    requiredRole?: 'admin' | 'normal' | 'observer',
+    requiredRole?: BoardRole,
   ): Promise<void> {
     const member = await this.boardMemberRepository.findOne({
-      where: { board_id: boardId, user_id: userId },
+      where: { board_id: String(boardId), user_id: userId },
     });
+
     if (!member) {
       throw new ForbiddenException('You do not have access to this board');
     }
-    if (requiredRole === 'admin' && member.role !== 'admin') {
-      throw new ForbiddenException('Admin access required');
+    if (requiredRole === 'owner' && member.role !== 'owner') {
+      throw new ForbiddenException('Owner access required');
     }
+  }
+
+  // change owner board
+  async changeBoardOwner(
+    boardId: string,
+    newOwnerId: string,
+    currentOwnerId: string,
+  ): Promise<{ message: string; success: boolean }> {
+    // ensure new owner is a member of the board
+    const newOwner = await this.boardMemberRepository.findOne({
+      where: { board_id: boardId, user_id: newOwnerId },
+    });
+    if (!newOwner) throw new NotFoundException('New owner must be a member of the board');
+
+    // ensure new owner is not already the owner
+    if (newOwner.role === 'owner') throw new ForbiddenException('User is already the owner');
+
+    if (currentOwnerId === newOwnerId) {
+      throw new ForbiddenException('You are already the owner of this board');
+    }
+
+    // update roles
+    await this.boardMemberRepository.update(
+      { board_id: boardId, user_id: newOwnerId },
+      { role: BoardRole.OWNER },
+    );
+    await this.boardMemberRepository.update(
+      { board_id: boardId, user_id: currentOwnerId },
+      { role: BoardRole.MEMBER },
+    );
+
+    return { message: 'Board owner changed successfully', success: true };
   }
 }

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, MaxLength, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateBoardDto {
@@ -17,10 +17,13 @@ export class CreateBoardDto {
   @IsOptional()
   cover_url?: string;
 
-  @ApiPropertyOptional({ example: '1' })
+  @ApiProperty({
+    example: 'workspace-uuid',
+    description: 'Workspace ID where the board will be created',
+  })
   @IsString()
-  @IsOptional()
-  workspace_id?: string;
+  @IsNotEmpty()
+  workspaceId!: string;
 
   @ApiPropertyOptional({ example: false })
   @IsBoolean()

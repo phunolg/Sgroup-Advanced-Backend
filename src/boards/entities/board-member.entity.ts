@@ -2,6 +2,8 @@ import { Column, Entity, PrimaryColumn, ManyToOne, JoinColumn, Index } from 'typ
 import { ApiProperty } from '@nestjs/swagger';
 import { User } from '../../users/entities/user.entity';
 import { Board } from './board.entity';
+import { BoardRole } from 'src/common/enum/role/board-role.enum';
+import { BoardPermission } from 'src/common/enum/permission/board-permissions.enum';
 
 @Entity('board_members')
 export class BoardMember {
@@ -14,13 +16,16 @@ export class BoardMember {
   @Index('idx_board_members_user')
   user_id!: string;
 
-  @ApiProperty({ example: 'admin' })
-  @Column({ type: 'text', default: 'normal' })
-  role!: 'admin' | 'normal' | 'observer';
+  @ApiProperty({ example: 'owner' })
+  @Column({ type: 'enum', enum: BoardRole, default: BoardRole.MEMBER })
+  role!: BoardRole;
 
   @ApiProperty()
   @Column({ type: 'timestamptz', default: () => 'now()' })
   joined_at!: Date;
+
+  @Column({ type: 'jsonb', default: [] })
+  permissions!: BoardPermission[];
 
   @ManyToOne(() => User, (u) => u.boardMembers, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

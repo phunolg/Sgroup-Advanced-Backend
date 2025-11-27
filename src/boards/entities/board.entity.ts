@@ -49,7 +49,7 @@ export class Board extends BaseEntityTimestamps {
   @Column({ type: 'boolean', default: false })
   is_closed!: boolean;
 
-  @ApiProperty({ example: '1' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
   @Column({ type: 'uuid', nullable: true })
   created_by?: string;
 
