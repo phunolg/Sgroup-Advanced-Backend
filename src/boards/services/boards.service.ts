@@ -394,6 +394,7 @@ export class BoardsService {
     }
 
     await this.boardRepository.delete(boardId);
+  }
   // Invitation methods
   async createInvitation(
     boardId: string,
