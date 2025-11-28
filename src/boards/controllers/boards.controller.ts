@@ -12,7 +12,15 @@ import {
   HttpStatus,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { Query } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { BoardsService } from '../services/boards.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import {
@@ -25,6 +33,8 @@ import {
   CreateLabelDto,
   UpdateLabelDto,
   UpdateBoardVisibilityDto,
+  DeleteBoardDto,
+  ArchiveBoardDto,
   CreateBoardInvitationDto,
 } from '../dto';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
@@ -60,10 +70,22 @@ export class BoardsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all boards for current user' })
-  @ApiResponse({ status: 200, description: 'List of boards' })
-  async findAll(@Request() req: any) {
-    return this.boardsService.findAll(req.user.sub);
+  @ApiOperation({ summary: 'Get boards (Filter by status and workspace)' })
+  @ApiQuery({
+    name: 'is_closed',
+    required: false,
+    type: Boolean,
+    description: 'Filter closed boards',
+  })
+  @ApiQuery({ name: 'workspace_id', required: false, type: String, description: 'Workspace ID' })
+  async findAll(
+    @Request() req: any,
+    @Query('is_closed') isClosed?: string,
+    @Query('workspace_id') workspaceId?: string,
+  ) {
+    const status = isClosed === 'true';
+
+    return this.boardsService.findAll(req.user.sub, status, workspaceId);
   }
 
   @Get(':id')
@@ -106,13 +128,30 @@ export class BoardsController {
     return this.boardsService.updateVisibility(req.user.sub, id, dto.visibility);
   }
 
-  @Delete(':id')
+  @Patch(':id/archive')
+  @ApiOperation({ summary: 'Archive or Reopen a board (Owner only)' })
+  @ApiResponse({ status: 200, description: 'Board status updated' })
+  async archiveBoard(@Param('id') id: string, @Body() dto: ArchiveBoardDto, @Request() req: any) {
+    return this.boardsService.archiveBoard(req.user.sub, id, dto.is_closed);
+  }
+
+  // @Delete(':id')
+  // @HttpCode(HttpStatus.NO_CONTENT)
+  // @ApiOperation({ summary: 'Delete a board' })
+  // @ApiParam({ name: 'id', description: 'Board ID' })
+  // @ApiResponse({ status: 204, description: 'Board deleted' })
+  // async remove(@Param('id') id: string, @Request() req: any) {
+  //   await this.boardsService.remove(id, req.user.sub);
+  // }
+
+  @Delete(':id/permanent')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a board' })
-  @ApiParam({ name: 'id', description: 'Board ID' })
-  @ApiResponse({ status: 204, description: 'Board deleted' })
-  async remove(@Param('id') id: string, @Request() req: any) {
-    await this.boardsService.remove(id, req.user.sub);
+  @ApiOperation({ summary: 'Delete board permanently' })
+  @ApiResponse({ status: 204, description: 'Deleted successfully' })
+  @ApiResponse({ status: 409, description: 'Board is open, need confirmation' })
+  async deletePermanent(@Param('id') id: string, @Body() dto: DeleteBoardDto, @Request() req: any) {
+    // Truyền confirm (có thể undefined) xuống service
+    await this.boardsService.deleteBoardPermanent(req.user.sub, id, dto.confirm);
   }
 
   // ============ Board Members ============
