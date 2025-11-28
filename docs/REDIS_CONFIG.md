@@ -20,3 +20,6 @@ Bạn có thể kết nối vào container Redis và sử dụng Redis CLI bằn
 Cách 2: Dùng một công cụ GUI
 Bạn cũng có thể sử dụng các công cụ GUI như RedisInsight hoặc Medis để kết nối và quản lý Redis dễ dàng hơn.
 Chỉ cần nhập địa chỉ `localhost` và cổng `6379` để kết nối.
+
+conect:
+docker start sgroup-trello
