@@ -20,8 +20,6 @@ export class UsersService {
   ) {}
 
   async findById(id: string): Promise<Omit<User, 'password' | 'verification_token'>> {
-    console.log('Service findById called with:', id, 'Type:', typeof id);
-
     const user = await this.userRepository.findOne({
       where: { id, is_deleted: false },
       select: [
@@ -37,8 +35,6 @@ export class UsersService {
         'updatedAt',
       ],
     });
-
-    console.log('Query result:', user ? 'Found user' : 'No user found');
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -62,12 +58,6 @@ export class UsersService {
         'updatedAt',
       ],
     });
-
-    console.log('Found users count:', users.length);
-    console.log(
-      'User IDs:',
-      users.map((u) => ({ id: u.id, type: typeof u.id })),
-    );
 
     return users;
   }

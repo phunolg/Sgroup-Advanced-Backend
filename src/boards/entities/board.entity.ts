@@ -12,6 +12,7 @@ import { BaseEntityTimestamps } from '../../entities/base.entity';
 import { BoardMember } from './board-member.entity';
 import { List } from './list.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { BoardInvitation } from './board-invitation.entity';
 
 export enum BoardVisibility {
   PRIVATE = 'private',
@@ -58,6 +59,9 @@ export class Board extends BaseEntityTimestamps {
 
   @OneToMany(() => List, (l) => l)
   lists?: List[];
+
+  @OneToMany(() => BoardInvitation, (inv) => inv.board)
+  invitations?: BoardInvitation[];
 
   // // ManyToMany convenience accessor to users via board_members join table
   // @ManyToMany(() => User, { cascade: false })

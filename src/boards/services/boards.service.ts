@@ -5,9 +5,11 @@ import { Board, BoardVisibility } from '../entities/board.entity';
 import { BoardMember } from '../entities/board-member.entity';
 import { List } from '../entities/list.entity';
 import { Label } from '../entities/label.entity';
+import { BoardInvitation } from '../entities/board-invitation.entity';
 
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { User } from '../../users/entities/user.entity';
 
 import {
   CreateBoardDto,
@@ -18,8 +20,10 @@ import {
   UpdateBoardMemberDto,
   CreateLabelDto,
   UpdateLabelDto,
+  CreateBoardInvitationDto,
 } from '../dto';
 import { BoardRole } from 'src/common/enum/role/board-role.enum';
+import { MailService } from '../../mail/mail.service';
 
 @Injectable()
 export class BoardsService {
@@ -36,6 +40,11 @@ export class BoardsService {
     private readonly workspaceMemberRepository: Repository<WorkspaceMember>,
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
+    @InjectRepository(BoardInvitation)
+    private readonly boardInvitationRepository: Repository<BoardInvitation>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly mailService: MailService,
   ) {}
 
   // Boards CRUD
@@ -277,7 +286,7 @@ export class BoardsService {
     if (!member) {
       throw new ForbiddenException('You do not have access to this board');
     }
-    if (requiredRole === 'owner' && member.role !== 'owner') {
+    if (requiredRole === BoardRole.OWNER && member.role !== BoardRole.OWNER) {
       throw new ForbiddenException('Owner access required');
     }
   }
@@ -312,5 +321,119 @@ export class BoardsService {
     );
 
     return { message: 'Board owner changed successfully', success: true };
+  }
+
+  // Invitation methods
+  async createInvitation(
+    boardId: string,
+    userId: string,
+    dto: CreateBoardInvitationDto,
+  ): Promise<{ token: string; link: string; expires_at: Date }> {
+    // Check if user has permission to invite (member or owner)
+    await this.checkBoardAccess(boardId, userId);
+
+    const board = await this.boardRepository.findOne({
+      where: { id: boardId },
+    });
+    if (!board) {
+      throw new NotFoundException('Board not found');
+    }
+
+    // Generate unique token
+    const token = this.generateToken();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // Valid for 7 days
+
+    const invitation = this.boardInvitationRepository.create({
+      board_id: boardId,
+      created_by: userId,
+      invited_email: dto.invited_email,
+      invited_user_id: dto.invited_user_id,
+      token,
+      expires_at: expiresAt,
+    });
+
+    await this.boardInvitationRepository.save(invitation);
+
+    // Send invitation email if email provided
+    if (dto.invited_email) {
+      const inviter = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+      await this.mailService.sendBoardInvitation({
+        board_name: board.name,
+        invited_email: dto.invited_email,
+        inviter_name: inviter?.name || 'A user',
+        invitation_link: `${process.env.APP_URL || 'http://localhost:3000'}/boards/join/${token}`,
+      });
+    }
+
+    return {
+      token,
+      link: `${process.env.APP_URL || 'http://localhost:3000'}/boards/join/${token}`,
+      expires_at: expiresAt,
+    };
+  }
+
+  async verifyInvitation(token: string): Promise<BoardInvitation> {
+    const invitation = await this.boardInvitationRepository.findOne({
+      where: { token },
+      relations: ['board', 'inviter'],
+    });
+
+    if (!invitation) {
+      throw new NotFoundException('Invalid invitation link');
+    }
+
+    if (invitation.isExpired()) {
+      throw new ForbiddenException('Invitation has expired');
+    }
+
+    if (invitation.is_used) {
+      throw new ForbiddenException('Invitation has already been used');
+    }
+
+    return invitation;
+  }
+
+  async acceptInvitation(token: string, userId: string): Promise<Board> {
+    const invitation = await this.verifyInvitation(token);
+
+    // Check if user is already a member
+    const existingMember = await this.boardMemberRepository.findOne({
+      where: { board_id: invitation.board_id, user_id: userId },
+    });
+
+    // If not a member yet, add them as board member
+    if (!existingMember) {
+      await this.boardMemberRepository.save({
+        board_id: invitation.board_id,
+        user_id: userId,
+        role: BoardRole.MEMBER,
+      });
+    }
+
+    // Mark invitation as used
+    await this.boardInvitationRepository.update(
+      { id: invitation.id },
+      { is_used: true, used_by: userId },
+    );
+
+    const board = await this.boardRepository.findOne({
+      where: { id: invitation.board_id },
+    });
+
+    if (!board) {
+      throw new NotFoundException('Board not found');
+    }
+
+    return board;
+  }
+
+  // Helper to generate unique token
+  private generateToken(): string {
+    return (
+      Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    );
   }
 }
