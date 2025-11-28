@@ -1,0 +1,120 @@
+<!-- src/mail/templates/board-invitation.hbs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invited to {{boardName}}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 30px;
+    }
+    .greeting {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .message {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .board-box {
+      background-color: #f8f9fa;
+      border-left: 4px solid #667eea;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .board-name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+    .inviter-info {
+      margin: 5px 0;
+      color: #666;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 30px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white !important;
+      text-decoration: none;
+      border-radius: 5px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📋 Join Board: {{boardName}}</h1>
+    </div>
+    
+    <div class="content">
+      <div class="greeting">Hi there,</div>
+      
+      <div class="message">
+        <strong>{{inviterName}}</strong> has invited you to join the board <strong>{{boardName}}</strong>. 
+        Accept the invitation to start collaborating!
+      </div>
+      
+      <div class="board-box">
+        <div class="board-name">{{boardName}}</div>
+        <div class="inviter-info">
+          <strong>Invited by:</strong> {{inviterName}}
+        </div>
+      </div>
+      
+      <div style="text-align: center;">
+        <a href="{{invitationLink}}" class="button">Accept Invitation</a>
+      </div>
+      
+      <div class="message" style="margin-top: 30px; font-size: 14px;">
+        <strong>Note:</strong> This invitation link will expire in 7 days.
+      </div>
+      
+      <div class="message">
+        If you have any questions, feel free to reach out to {{inviterName}} or contact support.
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>© 2024 Sgroup. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

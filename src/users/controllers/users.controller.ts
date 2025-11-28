@@ -47,7 +47,6 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User found' })
   @ApiResponse({ status: 404, description: 'User not found' })
   async getUserById(@Param('id') id: string) {
-    console.log('Looking for user with ID:', id, 'Type:', typeof id);
     return this.usersService.findById(id);
   }
 

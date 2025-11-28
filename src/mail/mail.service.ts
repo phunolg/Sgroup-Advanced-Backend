@@ -118,4 +118,27 @@ export class MailService {
       console.error('Failed to send welcome email:', error);
     }
   }
+
+  async sendBoardInvitation(data: {
+    board_name: string;
+    invited_email: string;
+    inviter_name: string;
+    invitation_link: string;
+  }): Promise<void> {
+    try {
+      await this.mailerService.sendMail({
+        to: data.invited_email,
+        subject: `You've been invited to join ${data.board_name}`,
+        template: 'board-invitation',
+        context: {
+          boardName: data.board_name,
+          inviterName: data.inviter_name,
+          invitationLink: data.invitation_link,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send board invitation email:', error);
+      throw error;
+    }
+  }
 }
