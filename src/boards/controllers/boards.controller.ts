@@ -25,6 +25,7 @@ import {
   CreateLabelDto,
   UpdateLabelDto,
   UpdateBoardVisibilityDto,
+  CreateBoardInvitationDto,
 } from '../dto';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
 import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator';
@@ -75,9 +76,12 @@ export class BoardsController {
   }
 
   @Patch(':id')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.OWNER)
   @ApiOperation({ summary: 'Update a board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'Board updated' })
+  @ApiResponse({ status: 403, description: 'Forbidden - only board owners can edit' })
   async update(
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true })) updateBoardDto: UpdateBoardDto,
@@ -268,5 +272,48 @@ export class BoardsController {
     @Request() req: any,
   ) {
     await this.boardsService.removeLabel(id, labelId, req.user.sub);
+  }
+
+  // ============ Board Invitations ============
+  @Post(':id/invitations')
+  @UseGuards(BoardPermissionGuard)
+  @ApiOperation({ summary: 'Create board invitation (member or owner only)' })
+  @ApiParam({ name: 'id', description: 'Board ID' })
+  @ApiResponse({ status: 201, description: 'Invitation created' })
+  async createInvitation(
+    @Param('id') id: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: CreateBoardInvitationDto,
+    @Request() req: any,
+  ) {
+    return this.boardsService.createInvitation(id, req.user.sub, dto);
+  }
+
+  @Get('invitations/:token/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify invitation token (public)' })
+  @ApiParam({ name: 'token', description: 'Invitation token' })
+  @ApiResponse({ status: 200, description: 'Invitation verified' })
+  async verifyInvitation(@Param('token') token: string) {
+    return this.boardsService.verifyInvitation(token);
+  }
+
+  @Post('invitations/:token/accept')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Accept invitation and join board' })
+  @ApiParam({ name: 'token', description: 'Invitation token' })
+  @ApiResponse({ status: 200, description: 'Invitation accepted, user joined board' })
+  async acceptInvitation(@Param('token') token: string, @Request() req: any) {
+    return this.boardsService.acceptInvitation(token, req.user.sub);
+  }
+
+  @Get('join/:token')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Join board via invitation link (redirect friendly)' })
+  @ApiParam({ name: 'token', description: 'Invitation token' })
+  @ApiResponse({ status: 200, description: 'Successfully joined board' })
+  async joinBoardViaLink(@Param('token') token: string, @Request() req: any) {
+    return this.boardsService.acceptInvitation(token, req.user.sub);
   }
 }

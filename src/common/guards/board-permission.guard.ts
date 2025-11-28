@@ -29,7 +29,7 @@ export class BoardPermissionGuard implements CanActivate {
     // Bypass for admin
     if (user.roles?.includes('admin')) return true;
 
-    const boardId = req.params.boardId || req.body?.boardId || req.query?.boardId;
+    const boardId = req.params.boardId || req.params.id || req.body?.boardId || req.query?.boardId;
     if (!boardId) throw new UnauthorizedException('Board ID is required');
 
     const userId = user.sub ?? user.id ?? user;

@@ -31,12 +31,6 @@ export class CreateBoardGuard implements CanActivate {
       },
     });
 
-    console.log('- membership found:', membership ? 'YES' : 'NO');
-    if (membership) {
-      console.log('- membership role:', membership.role);
-      console.log('- membership status:', membership.status);
-    }
-
     if (!membership) {
       throw new ForbiddenException('You are not a member of this workspace');
     }
