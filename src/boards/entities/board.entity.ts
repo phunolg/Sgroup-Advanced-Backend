@@ -6,15 +6,17 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
-  ManyToMany,
-  JoinTable,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { BaseEntityTimestamps } from '../../entities/base.entity';
 import { BoardMember } from './board-member.entity';
 import { List } from './list.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
-import { User } from '../../users/entities/user.entity';
+
+export enum BoardVisibility {
+  PRIVATE = 'private',
+  PUBLIC = 'public',
+}
 
 @Entity('boards')
 export class Board extends BaseEntityTimestamps {
@@ -57,12 +59,20 @@ export class Board extends BaseEntityTimestamps {
   @OneToMany(() => List, (l) => l)
   lists?: List[];
 
-  // ManyToMany convenience accessor to users via board_members join table
-  @ManyToMany(() => User, { cascade: false })
-  @JoinTable({
-    name: 'board_members',
-    joinColumn: { name: 'board_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  // // ManyToMany convenience accessor to users via board_members join table
+  // @ManyToMany(() => User, { cascade: false })
+  // @JoinTable({
+  //   name: 'board_members',
+  //   joinColumn: { name: 'board_id', referencedColumnName: 'id' },
+  //   inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  // })
+  // users?: any[];
+
+  @ApiProperty({ enum: BoardVisibility, example: BoardVisibility.PUBLIC })
+  @Column({
+    type: 'enum',
+    enum: BoardVisibility,
+    default: BoardVisibility.PUBLIC,
   })
-  users?: any[];
+  visibility!: BoardVisibility;
 }

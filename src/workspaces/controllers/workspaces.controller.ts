@@ -15,7 +15,7 @@ import { WorkspacesService } from '../services/workspaces.service';
 import { CreateWorkspaceDto, UpdateWorkspaceDto } from '../dto';
 import { Workspace } from '../entities/workspace.entity';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/roles.enum';
+import { Role } from '../../common/enum/role/roles.enum';
 import { AddMemberDto } from '../dto/add-member.dto';
 import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
