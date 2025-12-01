@@ -50,6 +50,10 @@ export class Board extends BaseEntityTimestamps {
   @Column({ type: 'boolean', default: false })
   is_closed!: boolean;
 
+  @ApiProperty({ description: 'Permanent invite token for joining the board' })
+  @Column({ type: 'text', unique: true, nullable: true })
+  invite_link_token?: string;
+
   @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
   @Column({ type: 'uuid', nullable: true })
   created_by?: string;

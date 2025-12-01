@@ -67,6 +67,7 @@ export class BoardsController {
   }
 
   @Get(':id')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Get board by ID' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'Board details' })
@@ -91,6 +92,7 @@ export class BoardsController {
   }
 
   @Patch(':id/visibility')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Update board visibility (Public/Private)' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'Visibility updated successfully' })
@@ -108,6 +110,7 @@ export class BoardsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Delete a board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 204, description: 'Board deleted' })
@@ -117,6 +120,7 @@ export class BoardsController {
 
   // ============ Board Members ============
   @Get(':id/members')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Get all members of a board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'List of board members' })
@@ -125,6 +129,7 @@ export class BoardsController {
   }
 
   @Post(':id/members')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Add a member to board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 201, description: 'Member added' })
@@ -137,6 +142,7 @@ export class BoardsController {
   }
 
   @Patch(':id/members/:userId')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Update board member role' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'userId', description: 'User ID' })
@@ -152,6 +158,7 @@ export class BoardsController {
 
   @Delete(':id/members/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Remove member from board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'userId', description: 'User ID' })
@@ -182,6 +189,7 @@ export class BoardsController {
 
   // ============ Lists ============
   @Get(':id/lists')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Get all lists in a board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'List of lists' })
@@ -190,6 +198,7 @@ export class BoardsController {
   }
 
   @Post(':id/lists')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Create a list in board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 201, description: 'List created' })
@@ -202,6 +211,7 @@ export class BoardsController {
   }
 
   @Patch(':id/lists/:listId')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Update a list' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'listId', description: 'List ID' })
@@ -217,6 +227,7 @@ export class BoardsController {
 
   @Delete(':id/lists/:listId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Delete a list' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'listId', description: 'List ID' })
@@ -227,6 +238,7 @@ export class BoardsController {
 
   // ============ Labels ============
   @Get(':id/labels')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Get all labels in a board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'List of labels' })
@@ -235,6 +247,7 @@ export class BoardsController {
   }
 
   @Post(':id/labels')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Create a label in board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 201, description: 'Label created' })
@@ -247,6 +260,7 @@ export class BoardsController {
   }
 
   @Patch(':id/labels/:labelId')
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Update a label' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'labelId', description: 'Label ID' })
@@ -262,6 +276,7 @@ export class BoardsController {
 
   @Delete(':id/labels/:labelId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Delete a label' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'labelId', description: 'Label ID' })
@@ -288,6 +303,16 @@ export class BoardsController {
     return this.boardsService.createInvitation(id, req.user.sub, dto);
   }
 
+  // ============ Join Board via Invite Link ============
+  @Get('invite/:token')
+  @ApiOperation({ summary: 'Join board via permanent invite link' })
+  @ApiParam({ name: 'token', description: 'Permanent board invite token' })
+  @ApiResponse({ status: 200, description: 'Successfully joined board via permanent link' })
+  async joinBoardViaLink(@Param('token') token: string, @Request() req: any) {
+    return this.boardsService.joinBoardByInviteLink(token, req.user.sub);
+  }
+
+  // ============ Accept Board Invitation ============
   @Get('invitations/:token/verify')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify invitation token (public)' })
@@ -304,16 +329,6 @@ export class BoardsController {
   @ApiParam({ name: 'token', description: 'Invitation token' })
   @ApiResponse({ status: 200, description: 'Invitation accepted, user joined board' })
   async acceptInvitation(@Param('token') token: string, @Request() req: any) {
-    return this.boardsService.acceptInvitation(token, req.user.sub);
-  }
-
-  @Get('join/:token')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Join board via invitation link (redirect friendly)' })
-  @ApiParam({ name: 'token', description: 'Invitation token' })
-  @ApiResponse({ status: 200, description: 'Successfully joined board' })
-  async joinBoardViaLink(@Param('token') token: string, @Request() req: any) {
     return this.boardsService.acceptInvitation(token, req.user.sub);
   }
 }

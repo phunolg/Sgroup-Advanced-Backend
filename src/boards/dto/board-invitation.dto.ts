@@ -2,12 +2,20 @@ import { IsEmail, IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateBoardInvitationDto {
-  @ApiProperty({ description: 'Email của người được mời', example: 'user@example.com' })
+  @ApiProperty({
+    description: 'Email của người được mời',
+    example: 'user@example.com',
+    required: false,
+  })
   @IsEmail()
   @IsOptional()
   invited_email?: string;
 
-  @ApiProperty({ description: 'User ID nếu mời người dùng hiện tại', example: 'uuid-here' })
+  @ApiProperty({
+    description: 'User ID nếu mời người dùng hiện tại',
+    example: 'uuid-here',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   invited_user_id?: string;
