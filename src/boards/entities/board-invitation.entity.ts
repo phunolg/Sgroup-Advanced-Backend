@@ -41,9 +41,6 @@ export class BoardInvitation {
   @JoinColumn({ name: 'invited_user_id' })
   invitedUser?: User;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
-  token!: string; // Unique invitation token
-
   @Column({ type: 'timestamp' })
   expires_at!: Date;
 

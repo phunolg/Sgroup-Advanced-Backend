@@ -414,19 +414,19 @@ export class BoardsService {
       created_by: userId,
       invited_email: dto.invited_email,
       invited_user_id: dto.invited_user_id,
-      token,
       expires_at: expiresAt,
     });
 
-    await this.boardInvitationRepository.save(invitation);
-
-    const inviter = await this.userRepository.findOne({
-      where: { id: userId },
-    });
+    const [savedInvitation, inviter] = await Promise.all([
+      this.boardInvitationRepository.save(invitation),
+      this.userRepository.findOne({
+        where: { id: userId },
+      }),
+    ]);
     const inviterName = inviter?.name || 'A user';
 
     const payload: InvitationCachePayload = {
-      invitationId: invitation.id,
+      invitationId: savedInvitation.id,
       boardId,
       invitedEmail: dto.invited_email,
       invitedUserId: dto.invited_user_id,
@@ -436,14 +436,13 @@ export class BoardsService {
       expiresAt: expiresAt.toISOString(),
     };
 
-    // lưu payload vào Redis
+    // lưu payload vào Redis, không còn lưu token trong DB
     await this.redisClient.set(
       this.getInvitationRedisKey(token),
       JSON.stringify(payload),
       'EX',
       BoardsService.INVITE_TOKEN_TTL_SECONDS,
     );
-
     const invitationLink = `${this.getAppUrl()}/boards/invitations/${token}/verify`;
 
     // gửi email mời nếu có cung cấp email
@@ -551,7 +550,17 @@ export class BoardsService {
     if (!board) {
       throw new NotFoundException('Invalid or expired invitation');
     }
-    // ktr xem đã là member chưa
+
+    if (board.workspace_id) {
+      const workspaceMember = await this.workspaceMemberRepository.findOne({
+        where: { workspace_id: board.workspace_id, user_id: userId },
+      });
+
+      if (!workspaceMember) {
+        throw new ForbiddenException('You must be a member of the workspace to join this board');
+      }
+    }
+
     const existingMember = await this.boardMemberRepository.findOne({
       where: { board_id: board.id, user_id: userId },
     });
