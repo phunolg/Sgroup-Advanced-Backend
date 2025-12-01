@@ -13,7 +13,7 @@ export class MailService {
     const verificationUrl = `${this.configService.get('APP_URL', 'http://localhost:5000')}/auth/verify-email?token=${token}`;
 
     try {
-      await this.mailerService.sendMail({
+      this.mailerService.sendMail({
         to: email,
         subject: 'Xác thực tài khoản của bạn',
         template: 'verification',
@@ -30,7 +30,7 @@ export class MailService {
 
   async sendWelcomeEmail(email: string, name: string): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      this.mailerService.sendMail({
         to: email,
         subject: 'Chào mừng đến với Sgroup!',
         template: 'welcome',
@@ -72,7 +72,7 @@ export class MailService {
     token: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      this.mailerService.sendMail({
         to: email,
         subject: `You've been added to ${workspaceName} workspace`,
         template: 'add-workspace-notification',
@@ -98,10 +98,10 @@ export class MailService {
     invitedBy: string,
     workspaceId: string,
   ): Promise<void> {
-    const workspaceUrl = `${this.configService.get('FRONTEND_URL', 'http://localhost:3000')}/api/workspaces/${workspaceId}`;
+    const workspaceUrl = `${this.configService.get('FRONTEND_URL', 'http://localhost:5000')}/api/workspaces/${workspaceId}`;
 
     try {
-      await this.mailerService.sendMail({
+      this.mailerService.sendMail({
         to: email,
         subject: `Welcome to ${workspaceName}!`,
         template: 'welcome-to-workspace',
@@ -113,7 +113,7 @@ export class MailService {
           workspaceUrl,
         },
       });
-      console.log(`✅ Welcome email sent to ${email}`);
+      console.log(`Welcome email sent to ${email}`);
     } catch (error) {
       console.error('Failed to send welcome email:', error);
     }
@@ -126,7 +126,7 @@ export class MailService {
     invitation_link: string;
   }): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      this.mailerService.sendMail({
         to: data.invited_email,
         subject: `You've been invited to join ${data.board_name}`,
         template: 'board-invitation',
@@ -138,7 +138,6 @@ export class MailService {
       });
     } catch (error) {
       console.error('Failed to send board invitation email:', error);
-      throw error;
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Board, BoardVisibility } from '../entities/board.entity';
@@ -24,9 +24,35 @@ import {
 } from '../dto';
 import { BoardRole } from 'src/common/enum/role/board-role.enum';
 import { MailService } from '../../mail/mail.service';
+import { Redis } from 'ioredis';
+import { REDIS_CLIENT } from '../../common/redis.module';
+
+// dữ liệu lưu trong Redis cho email invitation token
+interface InvitationCachePayload {
+  invitationId: string;
+  boardId: string;
+  invitedEmail?: string;
+  invitedUserId?: string;
+  createdBy: string;
+  boardName: string;
+  inviterName: string;
+  expiresAt: string;
+}
+
+export interface InvitationVerificationResult {
+  invitationId: string;
+  boardId: string;
+  boardName: string;
+  inviterName: string;
+  invitedEmail?: string;
+  invitedUserId?: string;
+  expiresAt: string;
+}
 
 @Injectable()
 export class BoardsService {
+  private static readonly INVITE_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+
   constructor(
     @InjectRepository(Board)
     private readonly boardRepository: Repository<Board>,
@@ -45,6 +71,8 @@ export class BoardsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly mailService: MailService,
+    @Inject(REDIS_CLIENT)
+    private readonly redisClient: Redis,
   ) {}
 
   // Boards CRUD
@@ -53,6 +81,7 @@ export class BoardsService {
       ...createBoardDto,
       workspace_id: createBoardDto.workspaceId,
       created_by: userId,
+      invite_link_token: this.generateToken(),
     });
     const savedBoard = await this.boardRepository.save(board);
 
@@ -271,7 +300,6 @@ export class BoardsService {
     return this.labelRepository.find({ where: { board_id: boardId } });
   }
 
-  // Helper: Check board access
   private async checkBoardAccess(
     boardId: string,
     userId: string,
@@ -366,7 +394,7 @@ export class BoardsService {
     userId: string,
     dto: CreateBoardInvitationDto,
   ): Promise<{ token: string; link: string; expires_at: Date }> {
-    // Check if user has permission to invite (member or owner)
+    // giữ checkBoardAccess phòng khi service được gọi ngoài controller
     await this.checkBoardAccess(boardId, userId);
 
     const board = await this.boardRepository.findOne({
@@ -376,7 +404,7 @@ export class BoardsService {
       throw new NotFoundException('Board not found');
     }
 
-    // Generate unique token
+    // Gen token
     const token = this.generateToken();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // Valid for 7 days
@@ -392,59 +420,104 @@ export class BoardsService {
 
     await this.boardInvitationRepository.save(invitation);
 
-    // Send invitation email if email provided
+    const inviter = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+    const inviterName = inviter?.name || 'A user';
+
+    const payload: InvitationCachePayload = {
+      invitationId: invitation.id,
+      boardId,
+      invitedEmail: dto.invited_email,
+      invitedUserId: dto.invited_user_id,
+      createdBy: userId,
+      boardName: board.name,
+      inviterName,
+      expiresAt: expiresAt.toISOString(),
+    };
+
+    // lưu payload vào Redis
+    await this.redisClient.set(
+      this.getInvitationRedisKey(token),
+      JSON.stringify(payload),
+      'EX',
+      BoardsService.INVITE_TOKEN_TTL_SECONDS,
+    );
+
+    const invitationLink = `${this.getAppUrl()}/boards/invitations/${token}/verify`;
+
+    // gửi email mời nếu có cung cấp email
     if (dto.invited_email) {
-      const inviter = await this.userRepository.findOne({
-        where: { id: userId },
-      });
-      await this.mailService.sendBoardInvitation({
+      this.mailService.sendBoardInvitation({
         board_name: board.name,
         invited_email: dto.invited_email,
-        inviter_name: inviter?.name || 'A user',
-        invitation_link: `${process.env.APP_URL || 'http://localhost:3000'}/boards/join/${token}`,
+        inviter_name: inviterName,
+        invitation_link: invitationLink,
       });
     }
 
     return {
       token,
-      link: `${process.env.APP_URL || 'http://localhost:3000'}/boards/join/${token}`,
+      link: invitationLink,
       expires_at: expiresAt,
     };
   }
 
-  async verifyInvitation(token: string): Promise<BoardInvitation> {
-    const invitation = await this.boardInvitationRepository.findOne({
-      where: { token },
-      relations: ['board', 'inviter'],
-    });
+  async verifyInvitation(token: string): Promise<InvitationVerificationResult> {
+    const redisKey = this.getInvitationRedisKey(token);
+    const cachedPayload = await this.redisClient.get(redisKey);
 
-    if (!invitation) {
-      throw new NotFoundException('Invalid invitation link');
+    if (!cachedPayload) {
+      throw new NotFoundException('Invalid or expired invitation');
     }
 
-    if (invitation.isExpired()) {
-      throw new ForbiddenException('Invitation has expired');
+    // parse JSON string thành object
+    let payload: InvitationCachePayload;
+    try {
+      payload = JSON.parse(cachedPayload) as InvitationCachePayload;
+    } catch (error) {
+      await this.redisClient.del(redisKey);
+      throw new NotFoundException('Invalid or expired invitation');
     }
 
-    if (invitation.is_used) {
-      throw new ForbiddenException('Invitation has already been used');
-    }
-
-    return invitation;
+    return {
+      invitationId: payload.invitationId,
+      boardId: payload.boardId,
+      boardName: payload.boardName,
+      inviterName: payload.inviterName,
+      invitedEmail: payload.invitedEmail,
+      invitedUserId: payload.invitedUserId,
+      expiresAt: payload.expiresAt,
+    };
   }
 
   async acceptInvitation(token: string, userId: string): Promise<Board> {
+    const redisKey = this.getInvitationRedisKey(token);
     const invitation = await this.verifyInvitation(token);
+
+    const invitationRecord = await this.boardInvitationRepository.findOne({
+      where: { id: invitation.invitationId },
+    });
+
+    if (!invitationRecord) {
+      await this.redisClient.del(redisKey);
+      throw new NotFoundException('Invalid or expired invitation');
+    }
+
+    if (invitationRecord.is_used || invitationRecord.isExpired()) {
+      await this.redisClient.del(redisKey);
+      throw new NotFoundException('Invalid or expired invitation');
+    }
 
     // Check if user is already a member
     const existingMember = await this.boardMemberRepository.findOne({
-      where: { board_id: invitation.board_id, user_id: userId },
+      where: { board_id: invitation.boardId, user_id: userId },
     });
 
     // If not a member yet, add them as board member
     if (!existingMember) {
       await this.boardMemberRepository.save({
-        board_id: invitation.board_id,
+        board_id: invitation.boardId,
         user_id: userId,
         role: BoardRole.MEMBER,
       });
@@ -452,12 +525,14 @@ export class BoardsService {
 
     // Mark invitation as used
     await this.boardInvitationRepository.update(
-      { id: invitation.id },
+      { id: invitation.invitationId },
       { is_used: true, used_by: userId },
     );
 
+    await this.redisClient.del(redisKey);
+
     const board = await this.boardRepository.findOne({
-      where: { id: invitation.board_id },
+      where: { id: invitation.boardId },
     });
 
     if (!board) {
@@ -467,10 +542,45 @@ export class BoardsService {
     return board;
   }
 
-  // Helper to generate unique token
+  async joinBoardByInviteLink(token: string, userId: string): Promise<Board> {
+    // tìm board theo token đã lưu trong db
+    const board = await this.boardRepository.findOne({
+      where: { invite_link_token: token },
+    });
+
+    if (!board) {
+      throw new NotFoundException('Invalid or expired invitation');
+    }
+    // ktr xem đã là member chưa
+    const existingMember = await this.boardMemberRepository.findOne({
+      where: { board_id: board.id, user_id: userId },
+    });
+
+    if (existingMember) {
+      throw new ForbiddenException('You are already a member of this board');
+    }
+
+    await this.boardMemberRepository.save({
+      board_id: board.id,
+      user_id: userId,
+      role: BoardRole.MEMBER,
+    });
+
+    return board;
+  }
+
   private generateToken(): string {
     return (
       Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
     );
+  }
+
+  // tạo key
+  private getInvitationRedisKey(token: string): string {
+    return `board:invite:${token}`;
+  }
+
+  private getAppUrl(): string {
+    return process.env.APP_URL || 'http://localhost:5000';
   }
 }

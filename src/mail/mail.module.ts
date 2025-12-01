@@ -14,6 +14,7 @@ import { join } from 'path';
           host: configService.get('MAIL_HOST', 'smtp.gmail.com'),
           port: configService.get('MAIL_PORT', 587),
           secure: false,
+          requireTLS: true,
           auth: {
             user: configService.get('MAIL_USER'),
             pass: configService.get('MAIL_PASSWORD'),
