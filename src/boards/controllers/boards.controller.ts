@@ -33,7 +33,6 @@ import {
   CreateLabelDto,
   UpdateLabelDto,
   UpdateBoardVisibilityDto,
-  DeleteBoardDto,
   ArchiveBoardDto,
   CreateBoardInvitationDto,
 } from '../dto';
@@ -113,6 +112,8 @@ export class BoardsController {
   }
 
   @Patch(':id/visibility')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.OWNER)
   @ApiOperation({ summary: 'Update board visibility (Public/Private)' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'Visibility updated successfully' })
@@ -129,6 +130,8 @@ export class BoardsController {
   }
 
   @Patch(':id/archive')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.OWNER)
   @ApiOperation({ summary: 'Archive or Reopen a board (Owner only)' })
   @ApiResponse({ status: 200, description: 'Board status updated' })
   async archiveBoard(@Param('id') id: string, @Body() dto: ArchiveBoardDto, @Request() req: any) {
@@ -145,13 +148,12 @@ export class BoardsController {
   // }
 
   @Delete(':id/permanent')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.OWNER)
   @ApiOperation({ summary: 'Delete board permanently' })
   @ApiResponse({ status: 204, description: 'Deleted successfully' })
-  @ApiResponse({ status: 409, description: 'Board is open, need confirmation' })
-  async deletePermanent(@Param('id') id: string, @Body() dto: DeleteBoardDto, @Request() req: any) {
-    // Truyền confirm (có thể undefined) xuống service
-    await this.boardsService.deleteBoardPermanent(req.user.sub, id, dto.confirm);
+  async deletePermanent(@Param('id') id: string, @Request() req: any) {
+    await this.boardsService.deleteBoardPermanent(req.user.sub, id);
   }
 
   // ============ Board Members ============
