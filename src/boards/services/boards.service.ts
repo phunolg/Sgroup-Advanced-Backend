@@ -95,23 +95,37 @@ export class BoardsService {
     return savedBoard;
   }
 
-  async findAll(userId: string): Promise<Board[]> {
-    return this.boardRepository
+  async findAll(userId: string, isClosed: boolean = false, workspaceId?: string): Promise<Board[]> {
+    const query = this.boardRepository
       .createQueryBuilder('board')
+      // 1. Join với bảng board_members: check quyen
       .leftJoin('board.members', 'bm', 'bm.user_id = :userId', { userId })
+
+      // 2. Join với workspace -> workspace_members: check quyen
       .leftJoin('board.workspace', 'w')
       .leftJoin('w.members', 'wm', 'wm.user_id = :userId', { userId })
+
+      // 3. Logic lọc điều kiện OR
       .where(
         new Brackets((qb) => {
-          qb.where('bm.user_id IS NOT NULL').orWhere(
-            '(board.visibility = :publicStatus AND wm.user_id IS NOT NULL)',
-            { publicStatus: BoardVisibility.PUBLIC },
-          );
+          // Điều kiện A: User là thành viên Board
+          qb.where('bm.user_id IS NOT NULL')
+
+            // Điều kiện B: Board Public VÀ User thuộc Workspace
+            // Truyền biến publicStatus NGAY TẠI ĐÂY
+            .orWhere('(board.visibility = :publicStatus AND wm.user_id IS NOT NULL)', {
+              publicStatus: BoardVisibility.PUBLIC,
+            });
         }),
       )
-      .andWhere('board.is_close = :isClosed', { isCloses: false })
-      .orderBy('board.created_at', 'DESC')
-      .getMany();
+
+      // 4. Lọc board chưa đóng
+      .andWhere('board.is_closed = :status', { status: isClosed });
+    if (workspaceId) {
+      // Nếu có gửi ID thì lọc, không thì thôi
+      query.andWhere('board.workspace_id = :workspaceId', { workspaceId });
+    }
+    return query.orderBy('board.createdAt', 'DESC').getMany();
   }
 
   async findOne(id: string, userId: string): Promise<Board> {
@@ -148,22 +162,6 @@ export class BoardsService {
 
     if (!board) {
       throw new NotFoundException(`Board with ID ${boardId} not found`);
-    }
-
-    let hasPermission = board.created_by === userId;
-    if (!hasPermission && board.workspace_id) {
-      const workspaceMember = await this.workspaceMemberRepository.findOne({
-        where: {
-          workspace_id: board.workspace_id,
-          user_id: userId,
-        },
-      });
-      if (workspaceMember && workspaceMember.role === 'owner') {
-        hasPermission = true;
-      }
-    }
-    if (!hasPermission) {
-      throw new ForbiddenException('Only Board Owner or Workspace Owner can change visibility');
     }
     await this.boardRepository.update(boardId, { visibility });
     return { ...board, visibility };
@@ -349,6 +347,45 @@ export class BoardsService {
     );
 
     return { message: 'Board owner changed successfully', success: true };
+  }
+
+  //Check quyen owner
+  private async checkOwnerAccess(userId: string, board: Board): Promise<void> {
+    let hasPermission = board.created_by === userId;
+    if (!hasPermission && board.workspace_id) {
+      const workspaceMember = await this.workspaceMemberRepository.findOne({
+        where: { workspace_id: board.workspace_id, user_id: userId },
+      });
+      if (workspaceMember && workspaceMember.role === 'owner') {
+        hasPermission = true;
+      }
+    }
+    if (!hasPermission) {
+      throw new ForbiddenException('Only Board Owner or Workspce Owner can perform');
+    }
+  }
+
+  //Archive/ Reopen board
+  async archiveBoard(userId: string, boardId: string, isClosed: boolean): Promise<Board> {
+    const board = await this.boardRepository.findOne({
+      where: { id: boardId },
+    });
+    if (!board) throw new NotFoundException(`Board not found`);
+
+    await this.checkOwnerAccess(userId, board);
+
+    board.is_closed = isClosed;
+    return this.boardRepository.save(board);
+  }
+
+  //delete Permanetly
+  async deleteBoardPermanent(useId: string, boardId: string): Promise<void> {
+    const board = await this.boardRepository.findOne({
+      where: { id: boardId },
+    });
+    if (!board) throw new NotFoundException(`Board not found`);
+    await this.checkOwnerAccess(useId, board);
+    await this.boardRepository.delete(boardId);
   }
 
   // Invitation methods
