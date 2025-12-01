@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Board, BoardVisibility } from '../entities/board.entity';
@@ -139,22 +133,6 @@ export class BoardsService {
 
     if (!board) {
       throw new NotFoundException(`Board with ID ${boardId} not found`);
-    }
-
-    let hasPermission = board.created_by === userId;
-    if (!hasPermission && board.workspace_id) {
-      const workspaceMember = await this.workspaceMemberRepository.findOne({
-        where: {
-          workspace_id: board.workspace_id,
-          user_id: userId,
-        },
-      });
-      if (workspaceMember && workspaceMember.role === 'owner') {
-        hasPermission = true;
-      }
-    }
-    if (!hasPermission) {
-      throw new ForbiddenException('Only Board Owner or Workspace Owner can change visibility');
     }
     await this.boardRepository.update(boardId, { visibility });
     return { ...board, visibility };
@@ -373,28 +351,15 @@ export class BoardsService {
   }
 
   //delete Permanetly
-  async deleteBoardPermanent(useId: string, boardId: string, confirm?: boolean): Promise<void> {
+  async deleteBoardPermanent(useId: string, boardId: string): Promise<void> {
     const board = await this.boardRepository.findOne({
       where: { id: boardId },
     });
     if (!board) throw new NotFoundException(`Board not found`);
     await this.checkOwnerAccess(useId, board);
-    if (!board.is_closed) {
-      if (!confirm) {
-        throw new HttpException(
-          {
-            status: HttpStatus.CONFLICT,
-            error: 'Board is currently open',
-            message: 'this board is active. Please confirm to delete permanently.',
-            need_confirmation: true,
-          },
-          HttpStatus.CONFLICT,
-        );
-      }
-    }
-
     await this.boardRepository.delete(boardId);
   }
+
   // Invitation methods
   async createInvitation(
     boardId: string,
