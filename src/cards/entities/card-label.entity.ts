@@ -5,12 +5,12 @@ import { Label } from '../../boards/entities/label.entity';
 
 @Entity('card_labels')
 export class CardLabel {
-  @ApiProperty({ example: '1' })
-  @PrimaryColumn({ type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryColumn({ type: 'uuid' })
   card_id!: string;
 
-  @ApiProperty({ example: '1' })
-  @PrimaryColumn({ type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryColumn({ type: 'uuid' })
   @Index('idx_card_labels_label')
   label_id!: string;
 

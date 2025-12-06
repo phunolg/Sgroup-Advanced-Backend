@@ -4,14 +4,14 @@ import { Checklist } from './checklist.entity';
 
 @Entity('checklist_items')
 export class ChecklistItem {
-  @ApiProperty({ example: '1' })
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @ApiProperty()
   @ApiProperty()
   @Index('idx_items_checklist_pos')
-  @Column({ type: 'bigint' })
+  @Column({ type: 'uuid' })
   checklist_id!: string;
 
   @ManyToOne(() => Checklist, (checklist) => checklist.items, { onDelete: 'CASCADE' })

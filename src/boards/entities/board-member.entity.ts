@@ -7,8 +7,8 @@ import { BoardPermission } from 'src/common/enum/permission/board-permissions.en
 
 @Entity('board_members')
 export class BoardMember {
-  @ApiProperty({ example: '1' })
-  @PrimaryColumn({ type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryColumn({ type: 'uuid' })
   board_id!: string;
 
   @ApiProperty({ example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' })
