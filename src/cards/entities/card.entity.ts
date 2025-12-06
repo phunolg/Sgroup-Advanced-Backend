@@ -19,13 +19,13 @@ import { Checklist } from './checklist.entity';
 
 @Entity('cards')
 export class Card {
-  @ApiProperty({ example: '1' })
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @ApiProperty()
   @Index('idx_cards_list_id')
-  @Column({ type: 'bigint' })
+  @Column({ type: 'uuid' })
   list_id!: string;
 
   @ManyToOne(() => List, (l) => l, { onDelete: 'CASCADE' })
@@ -64,7 +64,7 @@ export class Card {
   updated_at!: Date;
 
   @ApiProperty()
-  @Column({ type: 'bigint', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   cover_attachment_id?: string;
 
   @ManyToOne(() => Attachment, (a) => a, {

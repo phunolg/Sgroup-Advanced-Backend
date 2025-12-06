@@ -5,14 +5,14 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('attachments')
 export class Attachment {
-  @ApiProperty({ example: '1' })
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @ApiProperty()
   @ApiProperty()
   @Index('idx_attachments_card')
-  @Column({ type: 'bigint' })
+  @Column({ type: 'uuid' })
   card_id!: string;
 
   @ManyToOne(() => Card, (c) => c.attachments, { onDelete: 'CASCADE' })

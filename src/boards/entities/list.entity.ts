@@ -4,13 +4,13 @@ import { Board } from './board.entity';
 
 @Entity('lists')
 export class List {
-  @ApiProperty({ example: '1' })
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @ApiProperty()
   @Index('idx_lists_board_id')
-  @Column({ type: 'bigint' })
+  @Column({ type: 'uuid' })
   board_id!: string;
 
   @ManyToOne(() => Board, (b) => b.lists, { onDelete: 'CASCADE' })
