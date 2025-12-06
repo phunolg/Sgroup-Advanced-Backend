@@ -13,14 +13,14 @@ import { CardLabel } from '../../cards/entities/card-label.entity';
 
 @Entity('labels')
 export class Label {
-  @ApiProperty({ example: '1' })
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @ApiProperty()
   @ApiProperty()
   @Index('idx_labels_board')
-  @Column({ type: 'bigint' })
+  @Column({ type: 'uuid' })
   board_id!: string;
 
   @ManyToOne(() => Board, (b) => b, { onDelete: 'CASCADE' })

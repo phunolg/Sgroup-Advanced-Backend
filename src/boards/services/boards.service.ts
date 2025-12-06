@@ -306,7 +306,7 @@ export class BoardsService {
     requiredRole?: BoardRole,
   ): Promise<void> {
     const member = await this.boardMemberRepository.findOne({
-      where: { board_id: String(boardId), user_id: userId },
+      where: { board_id: boardId, user_id: userId },
     });
 
     if (!member) {

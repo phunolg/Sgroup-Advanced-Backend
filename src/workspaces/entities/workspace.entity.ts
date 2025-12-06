@@ -6,8 +6,8 @@ import { Board } from '../../boards/entities/board.entity';
 
 @Entity('workspaces')
 export class Workspace extends BaseEntityTimestamps {
-  @ApiProperty({ example: '1' })
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @ApiProperty({ example: '91bbf2a1-8d84-42d0-9d5f-c7850d2feadc' })
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @ApiProperty({ example: 'Team A' })
