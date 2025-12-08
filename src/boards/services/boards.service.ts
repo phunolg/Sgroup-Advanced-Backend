@@ -236,13 +236,7 @@ export class BoardsService {
     return this.listRepository.save(list);
   }
 
-  async updateList(
-    boardId: string,
-    listId: string,
-    dto: UpdateListDto,
-    userId: string,
-  ): Promise<List> {
-    await this.checkBoardAccess(boardId, userId);
+  async updateList(boardId: string, listId: string, dto: UpdateListDto): Promise<List> {
     await this.listRepository.update({ id: listId, board_id: boardId }, dto);
     const updated = await this.listRepository.findOne({ where: { id: listId } });
     if (!updated) {
@@ -256,10 +250,28 @@ export class BoardsService {
     await this.listRepository.delete({ id: listId, board_id: boardId });
   }
 
-  async getBoardLists(boardId: string, userId: string): Promise<List[]> {
+  async archiveList(boardId: string, listId: string, archived: boolean): Promise<List> {
+    await this.listRepository.update({ id: listId, board_id: boardId }, { archived });
+    const updated = await this.listRepository.findOne({ where: { id: listId } });
+    if (!updated) {
+      throw new NotFoundException('List not found');
+    }
+    return updated;
+  }
+
+  async getBoardLists(boardId: string, userId: string, archived?: boolean): Promise<List[]> {
     await this.checkBoardAccess(boardId, userId);
+    const whereCondition: any = { board_id: boardId };
+
+    // If archived param is provided, filter by it. Otherwise, default to non-archived only
+    if (archived !== undefined) {
+      whereCondition.archived = archived;
+    } else {
+      whereCondition.archived = false;
+    }
+
     return this.listRepository.find({
-      where: { board_id: boardId },
+      where: whereCondition,
       order: { position: 'ASC' },
     });
   }
