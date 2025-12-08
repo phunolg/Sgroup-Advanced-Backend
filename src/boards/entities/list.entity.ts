@@ -26,6 +26,10 @@ export class List {
   name!: string;
 
   @ApiProperty()
+  @Column({ type: 'boolean', default: false })
+  archived!: boolean;
+
+  @ApiProperty()
   @ApiProperty()
   @Index('idx_lists_board_pos')
   @Column({ type: 'bigint', default: 0 })

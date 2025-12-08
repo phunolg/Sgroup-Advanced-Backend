@@ -27,7 +27,6 @@ import {
   CreateBoardDto,
   UpdateBoardDto,
   CreateListDto,
-  UpdateListDto,
   AddBoardMemberDto,
   UpdateBoardMemberDto,
   CreateLabelDto,
@@ -35,6 +34,8 @@ import {
   UpdateBoardVisibilityDto,
   ArchiveBoardDto,
   CreateBoardInvitationDto,
+  UpdateListNameDto,
+  ArchiveListDto,
 } from '../dto';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
 import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator';
@@ -229,11 +230,26 @@ export class BoardsController {
   // ============ Lists ============
   @Get(':id/lists')
   @UseGuards(BoardPermissionGuard)
-  @ApiOperation({ summary: 'Get all lists in a board' })
+  @ApiOperation({
+    summary: 'Get all lists in a board',
+    description:
+      'Get lists. Use ?archived=true to get archived lists, ?archived=false for active lists (default)',
+  })
   @ApiParam({ name: 'id', description: 'Board ID' })
+  @ApiQuery({
+    name: 'archived',
+    required: false,
+    type: Boolean,
+    description: 'Filter by archived status. Default: false (show only active lists)',
+  })
   @ApiResponse({ status: 200, description: 'List of lists' })
-  async getBoardLists(@Param('id') id: string, @Request() req: any) {
-    return this.boardsService.getBoardLists(id, req.user.sub);
+  async getBoardLists(
+    @Param('id') id: string,
+    @Query('archived') archived?: string,
+    @Request() req?: any,
+  ) {
+    const isArchived = archived === 'true' ? true : archived === 'false' ? false : undefined;
+    return this.boardsService.getBoardLists(id, req.user.sub, isArchived);
   }
 
   @Post(':id/lists')
@@ -251,17 +267,17 @@ export class BoardsController {
 
   @Patch(':id/lists/:listId')
   @UseGuards(BoardPermissionGuard)
-  @ApiOperation({ summary: 'Update a list' })
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
+  @ApiOperation({ summary: 'Update a list name' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'listId', description: 'List ID' })
   @ApiResponse({ status: 200, description: 'List updated' })
   async updateList(
     @Param('id') id: string,
     @Param('listId') listId: string,
-    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: UpdateListDto,
-    @Request() req: any,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: UpdateListNameDto,
   ) {
-    return this.boardsService.updateList(id, listId, dto, req.user.sub);
+    return this.boardsService.updateList(id, listId, dto);
   }
 
   @Delete(':id/lists/:listId')
@@ -273,6 +289,23 @@ export class BoardsController {
   @ApiResponse({ status: 204, description: 'List deleted' })
   async removeList(@Param('id') id: string, @Param('listId') listId: string, @Request() req: any) {
     await this.boardsService.removeList(id, listId, req.user.sub);
+  }
+
+  @Patch(':id/lists/:listId/archive')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
+  @ApiOperation({ summary: 'Archive or unarchive a list' })
+  @ApiParam({ name: 'id', description: 'Board ID' })
+  @ApiParam({ name: 'listId', description: 'List ID' })
+  @ApiResponse({ status: 200, description: 'List archived/unarchived successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - user is not a member of the board' })
+  @ApiResponse({ status: 404, description: 'List not found' })
+  async archiveList(
+    @Param('id') id: string,
+    @Param('listId') listId: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: ArchiveListDto,
+  ) {
+    return this.boardsService.archiveList(id, listId, dto.archived);
   }
 
   // ============ Labels ============
