@@ -10,6 +10,7 @@ import { BoardMember } from './entities/board-member.entity';
 import { List } from './entities/list.entity';
 import { Label } from './entities/label.entity';
 import { BoardInvitation } from './entities/board-invitation.entity';
+import { Card } from '../cards/entities/card.entity';
 
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
@@ -29,6 +30,7 @@ import { MailModule } from '../mail/mail.module';
       WorkspaceMember,
       Workspace,
       User,
+      Card,
     ]),
     JwtModule.register({}),
     ConfigModule,

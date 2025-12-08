@@ -36,6 +36,8 @@ import {
   CreateBoardInvitationDto,
   UpdateListNameDto,
   ArchiveListDto,
+  MoveListDto,
+  CopyListDto,
 } from '../dto';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
 import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator';
@@ -306,6 +308,38 @@ export class BoardsController {
     @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: ArchiveListDto,
   ) {
     return this.boardsService.archiveList(id, listId, dto.archived);
+  }
+
+  @Patch('lists/:listId/move')
+  @UseGuards(JwtAuthGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
+  @ApiOperation({ summary: 'Move list to another board' })
+  @ApiParam({ name: 'listId', description: 'List ID' })
+  @ApiResponse({ status: 200, description: 'List moved successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - user is not a member of the board' })
+  @ApiResponse({ status: 404, description: 'List or target board not found' })
+  async moveList(
+    @Param('listId') listId: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: MoveListDto,
+    @Request() req: any,
+  ) {
+    return this.boardsService.moveList(listId, '', dto, req.user.sub);
+  }
+
+  @Post('lists/:listId/copy')
+  @UseGuards(JwtAuthGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
+  @ApiOperation({ summary: 'Copy list to another board (including all cards)' })
+  @ApiParam({ name: 'listId', description: 'List ID to copy' })
+  @ApiResponse({ status: 201, description: 'List copied successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - user is not a member of the board' })
+  @ApiResponse({ status: 404, description: 'List or target board not found' })
+  async copyList(
+    @Param('listId') listId: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: CopyListDto,
+    @Request() req: any,
+  ) {
+    return this.boardsService.copyList(listId, dto, req.user.sub);
   }
 
   // ============ Labels ============

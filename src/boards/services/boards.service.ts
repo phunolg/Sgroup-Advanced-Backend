@@ -6,6 +6,7 @@ import { BoardMember } from '../entities/board-member.entity';
 import { List } from '../entities/list.entity';
 import { Label } from '../entities/label.entity';
 import { BoardInvitation } from '../entities/board-invitation.entity';
+import { Card } from '../../cards/entities/card.entity';
 
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
@@ -21,6 +22,8 @@ import {
   CreateLabelDto,
   UpdateLabelDto,
   CreateBoardInvitationDto,
+  MoveListDto,
+  CopyListDto,
 } from '../dto';
 import { BoardRole } from 'src/common/enum/role/board-role.enum';
 import { MailService } from '../../mail/mail.service';
@@ -70,6 +73,8 @@ export class BoardsService {
     private readonly boardInvitationRepository: Repository<BoardInvitation>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Card)
+    private readonly cardRepository: Repository<Card>,
     private readonly mailService: MailService,
     @Inject(REDIS_CLIENT)
     private readonly redisClient: Redis,
@@ -276,7 +281,192 @@ export class BoardsService {
     });
   }
 
-  // Labels
+  async moveList(
+    listId: string,
+    sourceBoardId: string,
+    dto: MoveListDto,
+    userId: string,
+  ): Promise<List> {
+    const list = await this.listRepository.findOne({
+      where: { id: listId },
+    });
+    if (!list) {
+      throw new NotFoundException('List not found');
+    }
+
+    const actualSourceBoardId = list.board_id;
+
+    const [sourceBoard, targetBoard, sourceBoardAccessCheck, targetBoardAccessCheck] =
+      await Promise.all([
+        this.boardRepository.findOne({ where: { id: actualSourceBoardId } }),
+        this.boardRepository.findOne({ where: { id: dto.targetBoardId } }),
+        this.checkBoardAccess(actualSourceBoardId, userId).catch((e) => ({ error: e })),
+        this.checkBoardAccess(dto.targetBoardId, userId).catch((e) => ({ error: e })),
+      ]);
+
+    if (sourceBoardAccessCheck?.error) throw sourceBoardAccessCheck.error;
+    if (targetBoardAccessCheck?.error) throw targetBoardAccessCheck.error;
+
+    if (!sourceBoard) {
+      throw new NotFoundException('Source board not found');
+    }
+    if (!targetBoard) {
+      throw new NotFoundException('Target board not found');
+    }
+
+    const sourceWorkspaceId = sourceBoard.workspace_id;
+    const targetWorkspaceId = targetBoard.workspace_id;
+
+    if (sourceWorkspaceId !== targetWorkspaceId) {
+      throw new ForbiddenException('Boards must be in the same workspace');
+    }
+
+    if (actualSourceBoardId === dto.targetBoardId) {
+      throw new ForbiddenException('Cannot move list to the same board');
+    }
+
+    let newPosition = dto.position;
+    if (!newPosition) {
+      const maxPos = await this.listRepository
+        .createQueryBuilder('list')
+        .where('list.board_id = :boardId', { boardId: dto.targetBoardId })
+        .select('MAX(list.position)', 'max')
+        .getRawOne();
+      newPosition = maxPos?.max ? (BigInt(maxPos.max) + BigInt(1)).toString() : '0';
+    }
+
+    await this.listRepository.update(
+      { id: listId },
+      { board_id: dto.targetBoardId, position: newPosition },
+    );
+
+    const updatedList = await this.listRepository.findOne({ where: { id: listId } });
+    if (!updatedList) {
+      throw new NotFoundException('Failed to update list');
+    }
+
+    return updatedList;
+  }
+
+  async copyList(
+    listId: string,
+    dto: CopyListDto,
+    userId: string,
+  ): Promise<{ copiedList: List; copiedCards: Card[] }> {
+    // Get source list
+    const sourceList = await this.listRepository.findOne({
+      where: { id: listId },
+    });
+    if (!sourceList) {
+      throw new NotFoundException('Source list not found');
+    }
+
+    const sourceBoardId = sourceList.board_id;
+
+    // Check user has access to source board
+    await this.checkBoardAccess(sourceBoardId, userId);
+
+    // Get target board
+    const targetBoard = await this.boardRepository.findOne({
+      where: { id: dto.targetBoardId },
+    });
+    if (!targetBoard) {
+      throw new NotFoundException('Target board not found');
+    }
+
+    // Check user has access to target board
+    await this.checkBoardAccess(dto.targetBoardId, userId);
+
+    // Get all cards from source list AND get all lists in target board AND calculate max position in parallel
+    const [sourceCards, targetLists, maxPos] = await Promise.all([
+      this.cardRepository.find({
+        where: { list_id: listId },
+        order: { position: 'ASC' },
+      }),
+      this.listRepository.find({
+        where: { board_id: dto.targetBoardId },
+      }),
+      this.listRepository
+        .createQueryBuilder('list')
+        .where('list.board_id = :boardId', { boardId: dto.targetBoardId })
+        .select('MAX(list.position)', 'max')
+        .getRawOne(),
+    ]);
+
+    // Generate new list name with duplicate checking
+    let newListName: string;
+    let newListTitle: string;
+
+    if (dto.newName) {
+      // If custom name provided, use it as-is
+      newListName = dto.newName;
+      newListTitle = dto.newName;
+    } else {
+      // Generate default name with duplicate checking
+      const baseName = sourceList.name;
+      const baseTitle = sourceList.title;
+      const copyPrefix = `(copy`;
+
+      // Check for existing copies in target board
+      const existingCopies = targetLists.filter((list) => list.name.includes(copyPrefix));
+
+      if (existingCopies.length === 0) {
+        // No copies exist, use default "(copy)"
+        newListName = `${baseName} (copy)`;
+        newListTitle = `${baseTitle} (copy)`;
+      } else {
+        // Find the highest number in existing copies
+        let maxCopyNumber = 1;
+        existingCopies.forEach((list) => {
+          const match = list.name.match(/\(copy (\d+)\)/);
+          if (match) {
+            maxCopyNumber = Math.max(maxCopyNumber, parseInt(match[1], 10));
+          }
+        });
+
+        // Next copy number
+        const nextCopyNumber = maxCopyNumber + 1;
+        newListName = `${baseName} (copy ${nextCopyNumber})`;
+        newListTitle = `${baseTitle} (copy ${nextCopyNumber})`;
+      }
+    }
+
+    // Calculate position for new list in target board
+    const newListPosition = maxPos?.max ? (BigInt(maxPos.max) + BigInt(1)).toString() : '0';
+
+    // Create new list in target board
+    const newList = this.listRepository.create({
+      board_id: dto.targetBoardId,
+      title: newListTitle,
+      name: newListName,
+      position: newListPosition,
+      archived: sourceList.archived,
+    });
+
+    const savedList = await this.listRepository.save(newList);
+
+    // Copy all cards from source list to new list in parallel
+    const copiedCards = await Promise.all(
+      sourceCards.map((sourceCard) =>
+        this.cardRepository.save(
+          this.cardRepository.create({
+            list_id: savedList.id,
+            title: sourceCard.title,
+            description: sourceCard.description,
+            position: sourceCard.position,
+            created_by: userId,
+            comments_count: 0,
+          }),
+        ),
+      ),
+    );
+
+    return {
+      copiedList: savedList,
+      copiedCards,
+    };
+  }
+
   async createLabel(boardId: string, dto: CreateLabelDto, userId: string): Promise<Label> {
     await this.checkBoardAccess(boardId, userId);
     const label = this.labelRepository.create({
