@@ -16,5 +16,5 @@ export class MoveListDto {
   })
   @IsOptional()
   @IsString()
-  position?: string;
+  position?: number;
 }

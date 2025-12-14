@@ -254,17 +254,19 @@ export class BoardsController {
     return this.boardsService.getBoardLists(id, req.user.sub, isArchived);
   }
 
+  // Create list in board
   @Post(':id/lists')
   @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
   @ApiOperation({ summary: 'Create a list in board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 201, description: 'List created' })
   async createList(
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: CreateListDto,
-    @Request() req: any,
+    // @Request() req: any,
   ) {
-    return this.boardsService.createList(id, dto, req.user.sub);
+    return this.boardsService.createList(id, dto);
   }
 
   @Patch(':id/lists/:listId')
