@@ -32,6 +32,11 @@ export class List {
   @ApiProperty()
   @ApiProperty()
   @Index('idx_lists_board_pos')
-  @Column({ type: 'bigint', default: 0 })
-  position!: string;
+  @Column({ type: 'float', default: 0.0 })
+  position!: number;
+
+  // cover img link
+  @ApiProperty()
+  @Column({ type: 'text', nullable: true })
+  cover_img!: string | null;
 }

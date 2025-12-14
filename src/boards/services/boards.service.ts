@@ -223,20 +223,22 @@ export class BoardsService {
   }
 
   // Lists
-  async createList(boardId: string, dto: CreateListDto, userId: string): Promise<List> {
-    await this.checkBoardAccess(boardId, userId);
-    const maxPos = await this.listRepository
+  async createList(boardId: string, dto: CreateListDto): Promise<List> {
+    // Tính position cho list mới
+    const maxPost = await this.listRepository
       .createQueryBuilder('list')
       .where('list.board_id = :boardId', { boardId })
       .select('MAX(list.position)', 'max')
       .getRawOne();
-    const position = maxPos?.max ? (BigInt(maxPos.max) + BigInt(1)).toString() : '0';
+    const currentMax = maxPost?.max ? parseFloat(maxPost.max) : 0;
+    const position = currentMax + 1;
 
     const list = this.listRepository.create({
       board_id: boardId,
       title: dto.title,
       name: dto.name,
       position,
+      cover_img: dto.cover_img || null,
     });
     return this.listRepository.save(list);
   }
@@ -332,7 +334,7 @@ export class BoardsService {
         .where('list.board_id = :boardId', { boardId: dto.targetBoardId })
         .select('MAX(list.position)', 'max')
         .getRawOne();
-      newPosition = maxPos?.max ? (BigInt(maxPos.max) + BigInt(1)).toString() : '0';
+      newPosition = maxPos?.max ? parseFloat(maxPos.max) + 1 : 0;
     }
 
     await this.listRepository.update(
@@ -432,7 +434,7 @@ export class BoardsService {
     }
 
     // Calculate position for new list in target board
-    const newListPosition = maxPos?.max ? (BigInt(maxPos.max) + BigInt(1)).toString() : '0';
+    const newListPosition = maxPos?.max ? parseFloat(maxPos.max) + 1 : 0;
 
     // Create new list in target board
     const newList = this.listRepository.create({
