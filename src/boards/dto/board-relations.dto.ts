@@ -10,6 +10,9 @@ export class CreateListDto {
   @ApiProperty({ example: 'To Do' })
   @IsString()
   name!: string;
+
+  @ApiProperty()
+  cover_img?: string | null;
 }
 
 export class UpdateListDto {
@@ -23,7 +26,7 @@ export class UpdateListDto {
 
   @ApiProperty({ example: '1' })
   @IsString()
-  position?: string;
+  position?: number;
 }
 
 export class AddBoardMemberDto {
