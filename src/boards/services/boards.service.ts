@@ -327,13 +327,6 @@ export class BoardsService {
       throw new NotFoundException('Target board not found');
     }
 
-    const sourceWorkspaceId = sourceBoard.workspace_id;
-    const targetWorkspaceId = targetBoard.workspace_id;
-
-    if (sourceWorkspaceId !== targetWorkspaceId) {
-      throw new ForbiddenException('Boards must be in the same workspace');
-    }
-
     if (actualSourceBoardId === dto.targetBoardId) {
       throw new ForbiddenException('Cannot move list to the same board');
     }
