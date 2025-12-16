@@ -38,6 +38,7 @@ import {
   ArchiveListDto,
   MoveListDto,
   CopyListDto,
+  ReorderListDto,
 } from '../dto';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
 import { WorkspaceRoles } from 'src/common/decorators/workspace-roles.decorator';
@@ -328,6 +329,22 @@ export class BoardsController {
     @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: ArchiveListDto,
   ) {
     return this.boardsService.archiveList(id, listId, dto.archived);
+  }
+
+  @Patch('lists/:listId/reorder')
+  @UseGuards(JwtAuthGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
+  @ApiOperation({ summary: 'Reorder a list within its board' })
+  @ApiParam({ name: 'listId', description: 'List ID' })
+  @ApiResponse({ status: 200, description: 'List reordered successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - user is not a member of the board' })
+  @ApiResponse({ status: 404, description: 'List not found' })
+  async reorderList(
+    @Param('listId') listId: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: ReorderListDto,
+    @Request() req: any,
+  ) {
+    return this.boardsService.reorderList(listId, dto.newIndex, req.user.sub);
   }
 
   @Patch('lists/:listId/move')

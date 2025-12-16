@@ -277,6 +277,52 @@ export class BoardsService {
     return updated;
   }
 
+  async reorderList(listId: string, newIndex: number, userId: string): Promise<List> {
+    const list = await this.listRepository.findOne({ where: { id: listId } });
+
+    if (!list) {
+      throw new NotFoundException('List not found');
+    }
+
+    await this.checkBoardAccess(list.board_id, userId);
+
+    const activeLists = await this.listRepository.find({
+      where: { board_id: list.board_id, archived: false },
+      order: { position: 'ASC' },
+    });
+
+    const currentIndex = activeLists.findIndex((item) => item.id === listId);
+    if (currentIndex === -1) {
+      throw new BadRequestException('Cannot reorder an archived list');
+    }
+
+    activeLists.splice(currentIndex, 1);
+    const boundedIndex = Math.max(0, Math.min(newIndex, activeLists.length));
+    activeLists.splice(boundedIndex, 0, list);
+
+    const prev = activeLists[boundedIndex - 1];
+    const next = activeLists[boundedIndex + 1];
+
+    let newPosition: number;
+    if (prev && next) {
+      newPosition = (prev.position + next.position) / 2;
+    } else if (!prev && next) {
+      newPosition = next.position - 1;
+    } else if (prev && !next) {
+      newPosition = prev.position + 1;
+    } else {
+      newPosition = 0;
+    }
+
+    await this.listRepository.update({ id: listId }, { position: newPosition });
+
+    const updated = await this.listRepository.findOne({ where: { id: listId } });
+    if (!updated) {
+      throw new NotFoundException('List not found');
+    }
+    return updated;
+  }
+
   async getBoardLists(boardId: string, userId: string, archived?: boolean): Promise<List[]> {
     await this.checkBoardAccess(boardId, userId);
     const whereCondition: any = { board_id: boardId };
