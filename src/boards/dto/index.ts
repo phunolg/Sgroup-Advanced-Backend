@@ -9,3 +9,4 @@ export * from './update-list-name.dto';
 export * from './archive-list.dto';
 export * from './move-list.dto';
 export * from './copy-list.dto';
+export * from './reorder-list.dto';
