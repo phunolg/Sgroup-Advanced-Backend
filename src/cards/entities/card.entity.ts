@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { List } from '../../boards/entities/list.entity';
+import { Board } from '../../boards/entities/board.entity';
 import { User } from '../../users/entities/user.entity';
 import { Attachment } from './attachment.entity';
 import { Label } from '../../boards/entities/label.entity';
@@ -31,6 +32,15 @@ export class Card {
   @ManyToOne(() => List, (l) => l, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'list_id' })
   list?: List;
+
+  @ApiProperty()
+  @Index('idx_cards_board_id')
+  @Column({ type: 'uuid' })
+  board_id!: string;
+
+  @ManyToOne(() => Board, (b) => b, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'board_id' })
+  board?: Board;
 
   @ApiProperty()
   @Column({ type: 'text' })
