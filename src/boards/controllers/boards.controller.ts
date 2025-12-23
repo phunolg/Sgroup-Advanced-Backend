@@ -272,6 +272,29 @@ export class BoardsController {
     return this.boardsService.getBoardLists(id, req.user.sub, isArchived);
   }
 
+  @Get(':id/cards')
+  @UseGuards(BoardPermissionGuard)
+  @ApiOperation({
+    summary: 'Get all cards in a board',
+    description: 'Get all cards in a board. Use ?archived=true/false to filter by archived status',
+  })
+  @ApiParam({ name: 'id', description: 'Board ID' })
+  @ApiQuery({
+    name: 'archived',
+    required: false,
+    type: Boolean,
+    description: 'Filter by archived status',
+  })
+  @ApiResponse({ status: 200, description: 'List of cards' })
+  async getBoardCards(
+    @Param('id') id: string,
+    @Query('archived') archived?: string,
+    @Request() req?: any,
+  ) {
+    const archivedBool = archived === 'true' ? true : archived === 'false' ? false : undefined;
+    return this.boardsService.getBoardCards(id, req.user.sub, archivedBool);
+  }
+
   // Create list in board
   @Post(':id/lists')
   @UseGuards(BoardPermissionGuard)

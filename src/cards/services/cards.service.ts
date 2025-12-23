@@ -6,6 +6,7 @@ import { Comment } from '../entities/comment.entity';
 import { Checklist } from '../entities/checklist.entity';
 import { ChecklistItem } from '../entities/checklist-item.entity';
 import { CardLabel } from '../entities/card-label.entity';
+import { List } from '../../boards/entities/list.entity';
 import {
   CreateCardDto,
   UpdateCardDto,
@@ -31,22 +32,44 @@ export class CardsService {
     private readonly checklistItemRepository: Repository<ChecklistItem>,
     @InjectRepository(CardLabel)
     private readonly cardLabelRepository: Repository<CardLabel>,
+    @InjectRepository(List)
+    private readonly listRepository: Repository<List>,
   ) {}
 
   // ============ Cards CRUD ============
   async create(createCardDto: CreateCardDto, userId: string): Promise<Card> {
+    // Validate list exists and get board_id
+    const list = await this.listRepository.findOne({
+      where: { id: createCardDto.list_id },
+      relations: ['board'],
+    });
+
+    if (!list) {
+      throw new NotFoundException(`List with ID ${createCardDto.list_id} not found`);
+    }
+
     const position = createCardDto.position ?? (await this.getNextPosition(createCardDto.list_id));
 
     const card = this.cardRepository.create({
       ...createCardDto,
+      board_id: list.board_id, // Auto-populate board_id from list
       position: Number(position),
       created_by: userId,
     });
     return this.cardRepository.save(card);
   }
 
-  async findAll(listId?: string): Promise<Card[]> {
-    const where = listId ? { list_id: listId } : {};
+  async findAll(listId?: string, archived?: boolean): Promise<Card[]> {
+    const where: any = {};
+
+    if (listId) {
+      where.list_id = listId;
+    }
+
+    if (archived !== undefined) {
+      where.archived = archived;
+    }
+
     return this.cardRepository.find({
       where,
       order: { position: 'ASC' },
@@ -73,8 +96,24 @@ export class CardsService {
   }
 
   async update(id: string, updateCardDto: UpdateCardDto): Promise<Card> {
+    // If list_id is being changed, update board_id accordingly
+    let board_id = updateCardDto.board_id;
+
+    if (updateCardDto.list_id) {
+      const list = await this.listRepository.findOne({
+        where: { id: updateCardDto.list_id },
+      });
+
+      if (!list) {
+        throw new NotFoundException(`List with ID ${updateCardDto.list_id} not found`);
+      }
+
+      board_id = list.board_id; // Auto-update board_id when moving to different list
+    }
+
     await this.cardRepository.update(id, {
       ...updateCardDto,
+      board_id,
       position: updateCardDto.position !== undefined ? Number(updateCardDto.position) : undefined,
       updated_at: new Date(),
     });
@@ -83,6 +122,15 @@ export class CardsService {
 
   async remove(id: string): Promise<void> {
     await this.cardRepository.delete(id);
+  }
+
+  // ============ Archive/Unarchive ============
+  async archiveCard(id: string, archived: boolean): Promise<Card> {
+    const card = await this.findOne(id);
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${id} not found`);
+    }
+    return this.update(id, { archived });
   }
 
   // ============ Comments ============

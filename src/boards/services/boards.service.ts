@@ -340,6 +340,22 @@ export class BoardsService {
     });
   }
 
+  async getBoardCards(boardId: string, userId: string, archived?: boolean): Promise<Card[]> {
+    await this.checkBoardAccess(boardId, userId);
+    const whereCondition: any = { board_id: boardId };
+
+    // Filter by archived status if provided
+    if (archived !== undefined) {
+      whereCondition.archived = archived;
+    }
+
+    return this.cardRepository.find({
+      where: whereCondition,
+      order: { position: 'ASC' },
+      relations: ['list', 'labels', 'checklists', 'created_by_user'],
+    });
+  }
+
   async moveList(
     listId: string,
     sourceBoardId: string,

@@ -10,15 +10,25 @@ import { Comment } from './entities/comment.entity';
 import { Checklist } from './entities/checklist.entity';
 import { ChecklistItem } from './entities/checklist-item.entity';
 import { CardLabel } from './entities/card-label.entity';
+import { List } from '../boards/entities/list.entity';
+import { CardPermissionGuard } from '../common/guards/card-permission.guard';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Card, Attachment, Comment, Checklist, ChecklistItem, CardLabel]),
+    TypeOrmModule.forFeature([
+      Card,
+      Attachment,
+      Comment,
+      Checklist,
+      ChecklistItem,
+      CardLabel,
+      List,
+    ]),
     JwtModule.register({}),
     ConfigModule,
   ],
   controllers: [CardsController],
-  providers: [CardsService],
+  providers: [CardsService, CardPermissionGuard],
   exports: [CardsService],
 })
 export class CardsModule {}
