@@ -23,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import { CardsService } from '../services/cards.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CardPermissionGuard } from '../../common/guards/card-permission.guard';
 import {
   CreateCardDto,
   UpdateCardDto,
@@ -37,7 +38,7 @@ import {
 
 @ApiTags('Cards')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, CardPermissionGuard)
 @Controller('cards')
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
@@ -56,9 +57,15 @@ export class CardsController {
   @Get()
   @ApiOperation({ summary: 'Get all cards (optional: filter by list)' })
   @ApiQuery({ name: 'listId', required: false, description: 'Filter by list ID' })
+  @ApiQuery({
+    name: 'archived',
+    required: false,
+    description: 'Filter by archived status (true/false)',
+  })
   @ApiResponse({ status: 200, description: 'List of cards' })
-  async findAll(@Query('listId') listId?: string) {
-    return this.cardsService.findAll(listId);
+  async findAll(@Query('listId') listId?: string, @Query('archived') archived?: string) {
+    const archivedBool = archived === 'true' ? true : archived === 'false' ? false : undefined;
+    return this.cardsService.findAll(listId, archivedBool);
   }
 
   @Get(':id')
@@ -88,6 +95,23 @@ export class CardsController {
   @ApiResponse({ status: 204, description: 'Card deleted' })
   async remove(@Param('id') id: string) {
     await this.cardsService.remove(id);
+  }
+
+  // ============ Archive/Unarchive ============
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'Archive a card' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card archived successfully' })
+  async archive(@Param('id') id: string) {
+    return this.cardsService.archiveCard(id, true);
+  }
+
+  @Delete(':id/archive')
+  @ApiOperation({ summary: 'Unarchive a card' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card unarchived successfully' })
+  async unarchive(@Param('id') id: string) {
+    return this.cardsService.archiveCard(id, false);
   }
 
   // ============ Comments ============
