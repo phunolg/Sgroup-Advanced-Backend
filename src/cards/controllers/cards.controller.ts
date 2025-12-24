@@ -269,4 +269,16 @@ export class CardsController {
   async removeLabelFromCard(@Param('id') id: string, @Param('labelId') labelId: string) {
     await this.cardsService.removeLabelFromCard(id, labelId);
   }
+
+  // ============ Move Card ============
+  @Patch('move')
+  @ApiOperation({ summary: 'Move card to another list or position (float position)' })
+  @ApiResponse({ status: 200, description: 'Card moved successfully' })
+  async moveCard(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    dto: import('../dto').MoveCardDto,
+    @Request() req: any,
+  ) {
+    return this.cardsService.moveCard(dto, req.user.sub);
+  }
 }

@@ -305,6 +305,59 @@ export class CardsService {
     await this.cardLabelRepository.delete({ card_id: cardId, label_id: labelId });
   }
 
+  // ============ Move Card ============
+  async moveCard(dto: import('../dto').MoveCardDto, userId: string): Promise<Card> {
+    const { cardId, targetListId, newIndex } = dto;
+    // 1. Lấy card hiện tại
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) throw new NotFoundException('Card not found');
+
+    // 2. Lấy list đích và kiểm tra quyền
+    const targetList = await this.listRepository.findOne({ where: { id: targetListId } });
+    if (!targetList) throw new NotFoundException('Target list not found');
+    // Kiểm tra quyền: user phải là member của board chứa list đích
+    // (Nếu đã dùng CardPermissionGuard cho toàn bộ controller thì chỉ cần check quyền khi targetList.board_id khác với card.board_id)
+    if (card.board_id !== targetList.board_id) {
+      const boardMember = await this.cardRepository.manager.query(
+        `SELECT 1 FROM board_members WHERE board_id = $1 AND user_id = $2 LIMIT 1`,
+        [targetList.board_id, userId],
+      );
+      if (!boardMember.length) {
+        throw new ForbiddenException('You are not a member of the target board');
+      }
+    }
+
+    // 3. Lấy tất cả cards trong list đích, sort theo position ASC
+    const cardsInTarget = await this.cardRepository.find({
+      where: { list_id: targetListId },
+      order: { position: 'ASC' },
+      select: ['id', 'position'],
+    });
+
+    // 4. Tính position mới
+    let newPosition: number;
+    if (cardsInTarget.length === 0) {
+      newPosition = 1024;
+    } else if (newIndex <= 0) {
+      newPosition = cardsInTarget[0].position - 1024;
+    } else if (newIndex >= cardsInTarget.length) {
+      newPosition = cardsInTarget[cardsInTarget.length - 1].position + 1024;
+    } else {
+      const prev = cardsInTarget[newIndex - 1].position;
+      const next = cardsInTarget[newIndex].position;
+      newPosition = (prev + next) / 2;
+    }
+
+    // 5. Update card
+    card.list_id = targetListId;
+    card.board_id = targetList.board_id;
+    card.position = newPosition;
+    await this.cardRepository.save(card);
+
+    // 6. (Optional) Nếu khoảng cách giữa 2 position < 1e-6, reindex lại toàn bộ list (chưa làm ở đây)
+    return card;
+  }
+
   // Helper
   private async getNextPosition(listId: string): Promise<number> {
     // ✅ Đổi từ bigint sang number
