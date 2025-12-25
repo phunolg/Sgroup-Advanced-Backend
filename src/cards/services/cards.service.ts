@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Card } from '../entities/card.entity';
@@ -18,6 +23,7 @@ import {
   UpdateChecklistItemDto,
   AddLabelToCardDto,
 } from '../dto';
+import { UpdateCardDueDateDto } from '../dto/update-card-due-date.dto';
 
 @Injectable()
 export class CardsService {
@@ -194,6 +200,48 @@ export class CardsService {
       relations: ['author'],
       order: { created_at: 'ASC' },
     });
+  }
+
+  // ============ Card Due Date ============
+  async updateCardDueDate(cardId: string, dto: UpdateCardDueDateDto): Promise<Card> {
+    // validate card
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    // validate date
+    if (dto.start_date && dto.end_date) {
+      if (new Date(dto.start_date) > new Date(dto.end_date)) {
+        throw new BadRequestException('Start date cannot be after end date');
+      }
+    }
+
+    card.start_date = dto.start_date ? new Date(dto.start_date) : null;
+    card.end_date = dto.end_date ? new Date(dto.end_date) : null;
+    card.is_completed = dto.is_completed ?? false;
+    card.updated_at = new Date();
+    await this.cardRepository.save(card);
+
+    return this.findOne(cardId);
+  }
+
+  // toggle complete card
+  async toggleCompleteCard(cardId: string): Promise<Card> {
+    // validate card
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    // toggle complete
+    card.is_completed = !card.is_completed;
+
+    // update updated_at
+    card.updated_at = new Date();
+    await this.cardRepository.save(card);
+
+    return this.findOne(cardId);
   }
 
   // ============ Checklists ============
