@@ -20,6 +20,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { CardsService } from '../services/cards.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -35,6 +36,10 @@ import {
   UpdateChecklistItemDto,
   AddLabelToCardDto,
 } from '../dto';
+import { UpdateCardDueDateDto } from '../dto/update-card-due-date.dto';
+import { BoardPermissionGuard } from 'src/common/guards/board-permission.guard';
+import { BoardRole } from 'src/common/enum/role/board-role.enum';
+import { BoardRoles } from 'src/common/decorators/board-roles.decorator';
 
 @ApiTags('Cards')
 @ApiBearerAuth()
@@ -95,6 +100,32 @@ export class CardsController {
   @ApiResponse({ status: 204, description: 'Card deleted' })
   async remove(@Param('id') id: string) {
     await this.cardsService.remove(id);
+  }
+
+  // ============ Card Due Date ============
+  @Patch(':cardId/due-date')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER)
+  @ApiBody({ type: UpdateCardDueDateDto, description: 'Update card due date and status' })
+  @ApiOperation({ summary: 'Update card due date and status' })
+  @ApiParam({ name: 'cardId', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card due date updated' })
+  async updateCardDueDate(
+    @Param('cardId') cardId: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: UpdateCardDueDateDto,
+  ) {
+    return this.cardsService.updateCardDueDate(cardId, dto);
+  }
+
+  // Toggle Complete Card
+  @Patch(':cardId/toggle-complete')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER)
+  @ApiOperation({ summary: 'Toggle complete card' })
+  @ApiParam({ name: 'cardId', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card completed toggled' })
+  async toggleCompleteCard(@Param('cardId') cardId: string) {
+    return this.cardsService.toggleCompleteCard(cardId);
   }
 
   // ============ Archive/Unarchive ============
