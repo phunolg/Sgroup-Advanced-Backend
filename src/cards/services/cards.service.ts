@@ -12,6 +12,7 @@ import { Checklist } from '../entities/checklist.entity';
 import { ChecklistItem } from '../entities/checklist-item.entity';
 import { CardLabel } from '../entities/card-label.entity';
 import { List } from '../../boards/entities/list.entity';
+import { Label } from '../../boards/entities/label.entity';
 import {
   CreateCardDto,
   UpdateCardDto,
@@ -40,6 +41,8 @@ export class CardsService {
     private readonly cardLabelRepository: Repository<CardLabel>,
     @InjectRepository(List)
     private readonly listRepository: Repository<List>,
+    @InjectRepository(Label)
+    private readonly labelRepository: Repository<Label>,
   ) {}
 
   // ============ Cards CRUD ============
@@ -336,21 +339,60 @@ export class CardsService {
   }
 
   // ============ Card Labels ============
-  async addLabelToCard(cardId: string, dto: AddLabelToCardDto): Promise<void> {
+  async addLabelToCard(cardId: string, dto: AddLabelToCardDto): Promise<{ message: string }> {
+    // Validate card exists
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    // Validate label exists
+    const label = await this.labelRepository.findOne({ where: { id: dto.label_id } });
+    if (!label) {
+      throw new NotFoundException(`Label with ID ${dto.label_id} not found`);
+    }
+
+    // Validate label belongs to the same board as the card
+    if (label.board_id !== card.board_id) {
+      throw new BadRequestException(
+        `Label does not belong to the same board as the card. Label belongs to board ${label.board_id}, but card belongs to board ${card.board_id}`,
+      );
+    }
+
+    // Check if already added
     const existing = await this.cardLabelRepository.findOne({
       where: { card_id: cardId, label_id: dto.label_id },
     });
     if (existing) {
-      return; // Already added
+      return { message: 'Label is already attached to this card' };
     }
+
     await this.cardLabelRepository.save({
       card_id: cardId,
       label_id: dto.label_id,
     });
+
+    return { message: `Label '${label.name || label.color}' added to card successfully` };
   }
 
-  async removeLabelFromCard(cardId: string, labelId: string): Promise<void> {
+  async removeLabelFromCard(cardId: string, labelId: string): Promise<{ message: string }> {
+    // Validate card exists
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    // Validate label exists on card
+    const cardLabel = await this.cardLabelRepository.findOne({
+      where: { card_id: cardId, label_id: labelId },
+    });
+    if (!cardLabel) {
+      throw new NotFoundException(`Label with ID ${labelId} is not attached to this card`);
+    }
+
     await this.cardLabelRepository.delete({ card_id: cardId, label_id: labelId });
+
+    return { message: 'Label removed from card successfully' };
   }
 
   // ============ Move Card ============
