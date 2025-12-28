@@ -34,6 +34,7 @@ import {
   CreateChecklistItemDto,
   UpdateChecklistItemDto,
   AddLabelToCardDto,
+  MoveCardDto,
 } from '../dto';
 
 @ApiTags('Cards')
@@ -271,14 +272,15 @@ export class CardsController {
   }
 
   // ============ Move Card ============
-  @Patch('move')
+  @Patch(':id/move')
   @ApiOperation({ summary: 'Move card to another list or position (float position)' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
   @ApiResponse({ status: 200, description: 'Card moved successfully' })
   async moveCard(
-    @Body(new ValidationPipe({ transform: true, whitelist: true }))
-    dto: import('../dto').MoveCardDto,
+    @Param('id') id: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: MoveCardDto,
     @Request() req: any,
   ) {
-    return this.cardsService.moveCard(dto, req.user.sub);
+    return this.cardsService.moveCard(id, dto, req.user.sub);
   }
 }
