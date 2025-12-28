@@ -20,9 +20,11 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { CardsService } from '../services/cards.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CardPermissionGuard } from '../../common/guards/card-permission.guard';
 import {
   CreateCardDto,
   UpdateCardDto,
@@ -34,10 +36,14 @@ import {
   UpdateChecklistItemDto,
   AddLabelToCardDto,
 } from '../dto';
+import { UpdateCardDueDateDto } from '../dto/update-card-due-date.dto';
+import { BoardPermissionGuard } from 'src/common/guards/board-permission.guard';
+import { BoardRole } from 'src/common/enum/role/board-role.enum';
+import { BoardRoles } from 'src/common/decorators/board-roles.decorator';
 
 @ApiTags('Cards')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, CardPermissionGuard)
 @Controller('cards')
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
@@ -56,9 +62,15 @@ export class CardsController {
   @Get()
   @ApiOperation({ summary: 'Get all cards (optional: filter by list)' })
   @ApiQuery({ name: 'listId', required: false, description: 'Filter by list ID' })
+  @ApiQuery({
+    name: 'archived',
+    required: false,
+    description: 'Filter by archived status (true/false)',
+  })
   @ApiResponse({ status: 200, description: 'List of cards' })
-  async findAll(@Query('listId') listId?: string) {
-    return this.cardsService.findAll(listId);
+  async findAll(@Query('listId') listId?: string, @Query('archived') archived?: string) {
+    const archivedBool = archived === 'true' ? true : archived === 'false' ? false : undefined;
+    return this.cardsService.findAll(listId, archivedBool);
   }
 
   @Get(':id')
@@ -88,6 +100,49 @@ export class CardsController {
   @ApiResponse({ status: 204, description: 'Card deleted' })
   async remove(@Param('id') id: string) {
     await this.cardsService.remove(id);
+  }
+
+  // ============ Card Due Date ============
+  @Patch(':cardId/due-date')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER)
+  @ApiBody({ type: UpdateCardDueDateDto, description: 'Update card due date and status' })
+  @ApiOperation({ summary: 'Update card due date and status' })
+  @ApiParam({ name: 'cardId', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card due date updated' })
+  async updateCardDueDate(
+    @Param('cardId') cardId: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: UpdateCardDueDateDto,
+  ) {
+    return this.cardsService.updateCardDueDate(cardId, dto);
+  }
+
+  // Toggle Complete Card
+  @Patch(':cardId/toggle-complete')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER)
+  @ApiOperation({ summary: 'Toggle complete card' })
+  @ApiParam({ name: 'cardId', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card completed toggled' })
+  async toggleCompleteCard(@Param('cardId') cardId: string) {
+    return this.cardsService.toggleCompleteCard(cardId);
+  }
+
+  // ============ Archive/Unarchive ============
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'Archive a card' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card archived successfully' })
+  async archive(@Param('id') id: string) {
+    return this.cardsService.archiveCard(id, true);
+  }
+
+  @Delete(':id/archive')
+  @ApiOperation({ summary: 'Unarchive a card' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card unarchived successfully' })
+  async unarchive(@Param('id') id: string) {
+    return this.cardsService.archiveCard(id, false);
   }
 
   // ============ Comments ============
@@ -244,5 +299,17 @@ export class CardsController {
   @ApiResponse({ status: 204, description: 'Label removed from card' })
   async removeLabelFromCard(@Param('id') id: string, @Param('labelId') labelId: string) {
     await this.cardsService.removeLabelFromCard(id, labelId);
+  }
+
+  // ============ Move Card ============
+  @Patch('move')
+  @ApiOperation({ summary: 'Move card to another list or position (float position)' })
+  @ApiResponse({ status: 200, description: 'Card moved successfully' })
+  async moveCard(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    dto: import('../dto').MoveCardDto,
+    @Request() req: any,
+  ) {
+    return this.cardsService.moveCard(dto, req.user.sub);
   }
 }

@@ -8,14 +8,24 @@ import {
   Index,
   ManyToMany,
   JoinTable,
+  AfterLoad,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { List } from '../../boards/entities/list.entity';
+import { Board } from '../../boards/entities/board.entity';
 import { User } from '../../users/entities/user.entity';
 import { Attachment } from './attachment.entity';
 import { Label } from '../../boards/entities/label.entity';
 import { CardLabel } from './card-label.entity';
 import { Checklist } from './checklist.entity';
+
+export enum CardStatus {
+  COMPLETE = 'complete',
+  OVERDUE = 'overdue',
+  DUE_SOON = 'due_soon',
+  NORMAL = 'normal',
+  NO_DATE = 'no_date',
+}
 
 @Entity('cards')
 export class Card {
@@ -31,6 +41,15 @@ export class Card {
   @ManyToOne(() => List, (l) => l, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'list_id' })
   list?: List;
+
+  @ApiProperty()
+  @Index('idx_cards_board_id')
+  @Column({ type: 'uuid' })
+  board_id!: string;
+
+  @ManyToOne(() => Board, (b) => b, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'board_id' })
+  board?: Board;
 
   @ApiProperty()
   @Column({ type: 'text' })
@@ -112,4 +131,47 @@ export class Card {
     inverseJoinColumn: { name: 'label_id', referencedColumnName: 'id' },
   })
   labels?: Label[];
+
+  // start date
+  @ApiProperty()
+  @Column({ type: 'timestamptz', nullable: true })
+  start_date?: Date | null;
+
+  // end date
+  @ApiProperty()
+  @Column({ type: 'timestamptz', nullable: true })
+  end_date?: Date | null;
+
+  // status completed
+  @ApiProperty()
+  @Column({ type: 'boolean', default: false })
+  is_completed?: boolean;
+
+  status?: CardStatus;
+
+  @AfterLoad()
+  calculateStatus() {
+    if (!this.end_date) {
+      this.status = CardStatus.NO_DATE; // không có ngày kết thúc
+      return;
+    }
+
+    if (this.is_completed) {
+      this.status = CardStatus.COMPLETE; // đã hoàn thành
+      return;
+    }
+
+    const now = new Date();
+    const end = new Date(this.end_date);
+    const timeDiff = end.getTime() - now.getTime();
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+
+    if (timeDiff < 0) {
+      this.status = CardStatus.OVERDUE; // quá hạn
+    } else if (timeDiff < oneDayInMs) {
+      this.status = CardStatus.DUE_SOON; // sắp hạn
+    } else {
+      this.status = CardStatus.NORMAL; // bình thường
+    }
+  }
 }

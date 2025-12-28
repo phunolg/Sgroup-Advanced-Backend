@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Card } from '../entities/card.entity';
@@ -6,6 +11,7 @@ import { Comment } from '../entities/comment.entity';
 import { Checklist } from '../entities/checklist.entity';
 import { ChecklistItem } from '../entities/checklist-item.entity';
 import { CardLabel } from '../entities/card-label.entity';
+import { List } from '../../boards/entities/list.entity';
 import {
   CreateCardDto,
   UpdateCardDto,
@@ -17,6 +23,7 @@ import {
   UpdateChecklistItemDto,
   AddLabelToCardDto,
 } from '../dto';
+import { UpdateCardDueDateDto } from '../dto/update-card-due-date.dto';
 
 @Injectable()
 export class CardsService {
@@ -31,22 +38,44 @@ export class CardsService {
     private readonly checklistItemRepository: Repository<ChecklistItem>,
     @InjectRepository(CardLabel)
     private readonly cardLabelRepository: Repository<CardLabel>,
+    @InjectRepository(List)
+    private readonly listRepository: Repository<List>,
   ) {}
 
   // ============ Cards CRUD ============
   async create(createCardDto: CreateCardDto, userId: string): Promise<Card> {
+    // Validate list exists and get board_id
+    const list = await this.listRepository.findOne({
+      where: { id: createCardDto.list_id },
+      relations: ['board'],
+    });
+
+    if (!list) {
+      throw new NotFoundException(`List with ID ${createCardDto.list_id} not found`);
+    }
+
     const position = createCardDto.position ?? (await this.getNextPosition(createCardDto.list_id));
 
     const card = this.cardRepository.create({
       ...createCardDto,
+      board_id: list.board_id, // Auto-populate board_id from list
       position: Number(position),
       created_by: userId,
     });
     return this.cardRepository.save(card);
   }
 
-  async findAll(listId?: string): Promise<Card[]> {
-    const where = listId ? { list_id: listId } : {};
+  async findAll(listId?: string, archived?: boolean): Promise<Card[]> {
+    const where: any = {};
+
+    if (listId) {
+      where.list_id = listId;
+    }
+
+    if (archived !== undefined) {
+      where.archived = archived;
+    }
+
     return this.cardRepository.find({
       where,
       order: { position: 'ASC' },
@@ -73,8 +102,24 @@ export class CardsService {
   }
 
   async update(id: string, updateCardDto: UpdateCardDto): Promise<Card> {
+    // If list_id is being changed, update board_id accordingly
+    let board_id = updateCardDto.board_id;
+
+    if (updateCardDto.list_id) {
+      const list = await this.listRepository.findOne({
+        where: { id: updateCardDto.list_id },
+      });
+
+      if (!list) {
+        throw new NotFoundException(`List with ID ${updateCardDto.list_id} not found`);
+      }
+
+      board_id = list.board_id; // Auto-update board_id when moving to different list
+    }
+
     await this.cardRepository.update(id, {
       ...updateCardDto,
+      board_id,
       position: updateCardDto.position !== undefined ? Number(updateCardDto.position) : undefined,
       updated_at: new Date(),
     });
@@ -83,6 +128,15 @@ export class CardsService {
 
   async remove(id: string): Promise<void> {
     await this.cardRepository.delete(id);
+  }
+
+  // ============ Archive/Unarchive ============
+  async archiveCard(id: string, archived: boolean): Promise<Card> {
+    const card = await this.findOne(id);
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${id} not found`);
+    }
+    return this.update(id, { archived });
   }
 
   // ============ Comments ============
@@ -146,6 +200,48 @@ export class CardsService {
       relations: ['author'],
       order: { created_at: 'ASC' },
     });
+  }
+
+  // ============ Card Due Date ============
+  async updateCardDueDate(cardId: string, dto: UpdateCardDueDateDto): Promise<Card> {
+    // validate card
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    // validate date
+    if (dto.start_date && dto.end_date) {
+      if (new Date(dto.start_date) > new Date(dto.end_date)) {
+        throw new BadRequestException('Start date cannot be after end date');
+      }
+    }
+
+    card.start_date = dto.start_date ? new Date(dto.start_date) : null;
+    card.end_date = dto.end_date ? new Date(dto.end_date) : null;
+    card.is_completed = dto.is_completed ?? false;
+    card.updated_at = new Date();
+    await this.cardRepository.save(card);
+
+    return this.findOne(cardId);
+  }
+
+  // toggle complete card
+  async toggleCompleteCard(cardId: string): Promise<Card> {
+    // validate card
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    // toggle complete
+    card.is_completed = !card.is_completed;
+
+    // update updated_at
+    card.updated_at = new Date();
+    await this.cardRepository.save(card);
+
+    return this.findOne(cardId);
   }
 
   // ============ Checklists ============
@@ -255,6 +351,59 @@ export class CardsService {
 
   async removeLabelFromCard(cardId: string, labelId: string): Promise<void> {
     await this.cardLabelRepository.delete({ card_id: cardId, label_id: labelId });
+  }
+
+  // ============ Move Card ============
+  async moveCard(dto: import('../dto').MoveCardDto, userId: string): Promise<Card> {
+    const { cardId, targetListId, newIndex } = dto;
+    // 1. Lấy card hiện tại
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) throw new NotFoundException('Card not found');
+
+    // 2. Lấy list đích và kiểm tra quyền
+    const targetList = await this.listRepository.findOne({ where: { id: targetListId } });
+    if (!targetList) throw new NotFoundException('Target list not found');
+    // Kiểm tra quyền: user phải là member của board chứa list đích
+    // (Nếu đã dùng CardPermissionGuard cho toàn bộ controller thì chỉ cần check quyền khi targetList.board_id khác với card.board_id)
+    if (card.board_id !== targetList.board_id) {
+      const boardMember = await this.cardRepository.manager.query(
+        `SELECT 1 FROM board_members WHERE board_id = $1 AND user_id = $2 LIMIT 1`,
+        [targetList.board_id, userId],
+      );
+      if (!boardMember.length) {
+        throw new ForbiddenException('You are not a member of the target board');
+      }
+    }
+
+    // 3. Lấy tất cả cards trong list đích, sort theo position ASC
+    const cardsInTarget = await this.cardRepository.find({
+      where: { list_id: targetListId },
+      order: { position: 'ASC' },
+      select: ['id', 'position'],
+    });
+
+    // 4. Tính position mới
+    let newPosition: number;
+    if (cardsInTarget.length === 0) {
+      newPosition = 1024;
+    } else if (newIndex <= 0) {
+      newPosition = cardsInTarget[0].position - 1024;
+    } else if (newIndex >= cardsInTarget.length) {
+      newPosition = cardsInTarget[cardsInTarget.length - 1].position + 1024;
+    } else {
+      const prev = cardsInTarget[newIndex - 1].position;
+      const next = cardsInTarget[newIndex].position;
+      newPosition = (prev + next) / 2;
+    }
+
+    // 5. Update card
+    card.list_id = targetListId;
+    card.board_id = targetList.board_id;
+    card.position = newPosition;
+    await this.cardRepository.save(card);
+
+    // 6. (Optional) Nếu khoảng cách giữa 2 position < 1e-6, reindex lại toàn bộ list (chưa làm ở đây)
+    return card;
   }
 
   // Helper
