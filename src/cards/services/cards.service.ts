@@ -354,8 +354,8 @@ export class CardsService {
   }
 
   // ============ Move Card ============
-  async moveCard(dto: import('../dto').MoveCardDto, userId: string): Promise<Card> {
-    const { cardId, targetListId, newIndex } = dto;
+  async moveCard(cardId: string, dto: import('../dto').MoveCardDto, userId: string): Promise<Card> {
+    const { targetListId, newIndex } = dto;
     // 1. Lấy card hiện tại
     const card = await this.cardRepository.findOne({ where: { id: cardId } });
     if (!card) throw new NotFoundException('Card not found');
@@ -363,8 +363,6 @@ export class CardsService {
     // 2. Lấy list đích và kiểm tra quyền
     const targetList = await this.listRepository.findOne({ where: { id: targetListId } });
     if (!targetList) throw new NotFoundException('Target list not found');
-    // Kiểm tra quyền: user phải là member của board chứa list đích
-    // (Nếu đã dùng CardPermissionGuard cho toàn bộ controller thì chỉ cần check quyền khi targetList.board_id khác với card.board_id)
     if (card.board_id !== targetList.board_id) {
       const boardMember = await this.cardRepository.manager.query(
         `SELECT 1 FROM board_members WHERE board_id = $1 AND user_id = $2 LIMIT 1`,
@@ -402,7 +400,6 @@ export class CardsService {
     card.position = newPosition;
     await this.cardRepository.save(card);
 
-    // 6. (Optional) Nếu khoảng cách giữa 2 position < 1e-6, reindex lại toàn bộ list (chưa làm ở đây)
     return card;
   }
 
