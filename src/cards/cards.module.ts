@@ -12,6 +12,9 @@ import { ChecklistItem } from './entities/checklist-item.entity';
 import { CardLabel } from './entities/card-label.entity';
 import { List } from '../boards/entities/list.entity';
 import { CardPermissionGuard } from '../common/guards/card-permission.guard';
+import { BoardPermissionGuard } from 'src/common/guards/board-permission.guard';
+import { Board } from 'src/boards/entities/board.entity';
+import { Workspace } from 'src/workspaces/entities/workspace.entity';
 
 @Module({
   imports: [
@@ -22,13 +25,16 @@ import { CardPermissionGuard } from '../common/guards/card-permission.guard';
       Checklist,
       ChecklistItem,
       CardLabel,
+      Workspace,
       List,
+      Board,
+      Card,
     ]),
     JwtModule.register({}),
     ConfigModule,
   ],
   controllers: [CardsController],
-  providers: [CardsService, CardPermissionGuard],
+  providers: [CardsService, CardPermissionGuard, BoardPermissionGuard],
   exports: [CardsService],
 })
 export class CardsModule {}

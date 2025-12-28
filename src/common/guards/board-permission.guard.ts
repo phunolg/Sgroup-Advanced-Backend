@@ -10,6 +10,7 @@ import { Reflector } from '@nestjs/core';
 import { BoardMember } from 'src/boards/entities/board-member.entity';
 import { Board } from 'src/boards/entities/board.entity';
 import { WorkspaceMember } from 'src/workspaces/entities/workspace-member.entity';
+import { Card } from 'src/cards/entities/card.entity';
 import { DataSource } from 'typeorm';
 import { BOARD_ROLES_KEY } from '../decorators/board-roles.decorator';
 import { BOARD_PERMISSION_KEY } from '../decorators/board-permissions.decorator';
@@ -29,45 +30,63 @@ export class BoardPermissionGuard implements CanActivate {
     // Bypass for admin
     if (user.roles?.includes('admin')) return true;
 
-    const boardId = req.params.boardId || req.params.id || req.body?.boardId || req.query?.boardId;
+    let boardId = req.params.boardId || req.body?.boardId || req.query?.boardId;
+
+    // Nếu không có boardId nhưng có cardId trong route /cards/, lấy boardId từ card
+    if (!boardId && req.params.cardId && req.path.includes('/cards/')) {
+      const cardRepo = this.dataSource.getRepository(Card);
+      const card = await cardRepo.findOne({
+        where: { id: req.params.cardId },
+        select: ['board_id'],
+      });
+
+      if (!card) {
+        throw new NotFoundException('Card not found');
+      }
+
+      boardId = card.board_id;
+    }
+
+    // ✅ Nếu vẫn không có boardId, lấy từ params.id (cho routes boards)
+    if (!boardId && req.params.id && !req.path.includes('/cards/')) {
+      boardId = req.params.id;
+    }
+
     if (!boardId) throw new UnauthorizedException('Board ID is required');
 
     const userId = user.sub ?? user.id ?? user;
 
-    // get information member in the board
-    const boardMemberRepo = this.dataSource.getRepository(BoardMember);
-    const boardMember = await boardMemberRepo.findOne({
-      where: { board_id: boardId, user_id: userId },
-      relations: ['board'], // load relation to get workspace_id
-    });
+    // Get board information
+    const boardRepo = this.dataSource.getRepository(Board);
+    const board = await boardRepo.findOne({ where: { id: boardId } });
 
-    // check permission
-    let workspaceId = boardMember?.board?.workspace_id;
-    if (!workspaceId) {
-      // nếu không tìm thấy boardMember (User chưa join board), tìm workspaceId thủ công
-      const boardRepo = this.dataSource.getRepository(Board);
-      const board = await boardRepo.findOne({ where: { id: boardId } });
-      if (!board) throw new NotFoundException('Board not found');
-      workspaceId = board.workspace_id;
-    }
+    if (!board) throw new NotFoundException('Board not found');
 
-    // check permission Workspace owner
+    const workspaceId = board.workspace_id;
+
+    // Check workspace owner
     const workspaceMemberRepo = this.dataSource.getRepository(WorkspaceMember);
     const workspaceMember = await workspaceMemberRepo.findOne({
       where: { workspace_id: workspaceId, user_id: userId },
     });
 
-    // if user is workspace owner, allow all permissions
+    // If user is workspace owner, allow all permissions
     if (workspaceMember && workspaceMember.role === 'owner') {
       return true;
     }
 
-    // if user is not only workspace owner, but also board member -> block
+    // Get board member information
+    const boardMemberRepo = this.dataSource.getRepository(BoardMember);
+    const boardMember = await boardMemberRepo.findOne({
+      where: { board_id: boardId, user_id: userId },
+    });
+
+    // If user is not board member -> block
     if (!boardMember) {
       throw new ForbiddenException('You are not a member of this board');
     }
 
-    // check permission in the board
+    // Check permission in the board
     const allowedRoles =
       this.reflector.getAllAndOverride<string[]>(BOARD_ROLES_KEY, [
         context.getHandler(),
@@ -84,14 +103,14 @@ export class BoardPermissionGuard implements CanActivate {
       return true;
     }
 
-    // check role
+    // Check role
     if (allowedRoles.length > 0) {
       if (!allowedRoles.includes(boardMember.role)) {
         throw new ForbiddenException('Insufficient board role');
       }
     }
 
-    // check permission
+    // Check permission
     if (requiredPermissions.length > 0) {
       const userPermissions = boardMember.permissions || [];
       const hasAllPermissions = requiredPermissions.every((p) =>
@@ -104,6 +123,7 @@ export class BoardPermissionGuard implements CanActivate {
         );
       }
     }
+
     return true;
   }
 }
