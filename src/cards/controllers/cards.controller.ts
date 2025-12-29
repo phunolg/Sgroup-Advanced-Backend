@@ -283,25 +283,23 @@ export class CardsController {
 
   // ============ Labels ============
   @Post(':id/labels')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Add a label to a card' })
   @ApiParam({ name: 'id', description: 'Card ID' })
-  @ApiResponse({ status: 204, description: 'Label added to card' })
+  @ApiResponse({ status: 200, description: 'Label added to card' })
   async addLabelToCard(
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: AddLabelToCardDto,
   ) {
-    await this.cardsService.addLabelToCard(id, dto);
+    return this.cardsService.addLabelToCard(id, dto);
   }
 
   @Delete(':id/labels/:labelId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove a label from a card' })
   @ApiParam({ name: 'id', description: 'Card ID' })
   @ApiParam({ name: 'labelId', description: 'Label ID' })
-  @ApiResponse({ status: 204, description: 'Label removed from card' })
+  @ApiResponse({ status: 200, description: 'Label removed from card' })
   async removeLabelFromCard(@Param('id') id: string, @Param('labelId') labelId: string) {
-    await this.cardsService.removeLabelFromCard(id, labelId);
+    return this.cardsService.removeLabelFromCard(id, labelId);
   }
 
   // ============ Move Card ============

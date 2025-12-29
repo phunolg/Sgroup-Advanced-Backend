@@ -441,18 +441,18 @@ export class BoardsController {
   }
 
   @Delete(':id/labels/:labelId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(BoardPermissionGuard)
   @ApiOperation({ summary: 'Delete a label' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'labelId', description: 'Label ID' })
-  @ApiResponse({ status: 204, description: 'Label deleted' })
+  @ApiResponse({ status: 200, description: 'Label deleted' })
   async removeLabel(
     @Param('id') id: string,
     @Param('labelId') labelId: string,
     @Request() req: any,
   ) {
     await this.boardsService.removeLabel(id, labelId, req.user.sub);
+    return { message: 'Label deleted successfully' };
   }
 
   // ============ Board Invitations ============
