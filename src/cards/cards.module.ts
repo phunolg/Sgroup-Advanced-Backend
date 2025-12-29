@@ -10,8 +10,10 @@ import { Comment } from './entities/comment.entity';
 import { Checklist } from './entities/checklist.entity';
 import { ChecklistItem } from './entities/checklist-item.entity';
 import { CardLabel } from './entities/card-label.entity';
+import { CardMember } from './entities/card-member.entity';
 import { List } from '../boards/entities/list.entity';
 import { Label } from '../boards/entities/label.entity';
+import { BoardMember } from '../boards/entities/board-member.entity';
 import { CardPermissionGuard } from '../common/guards/card-permission.guard';
 import { BoardPermissionGuard } from 'src/common/guards/board-permission.guard';
 import { Board } from 'src/boards/entities/board.entity';
@@ -26,10 +28,12 @@ import { Workspace } from 'src/workspaces/entities/workspace.entity';
       Checklist,
       ChecklistItem,
       CardLabel,
+      CardMember,
       Label,
       Workspace,
       List,
       Board,
+      BoardMember,
     ]),
     JwtModule.register({}),
     ConfigModule,

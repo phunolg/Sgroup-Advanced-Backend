@@ -18,6 +18,7 @@ import { Attachment } from './attachment.entity';
 import { Label } from '../../boards/entities/label.entity';
 import { CardLabel } from './card-label.entity';
 import { Checklist } from './checklist.entity';
+import { CardMember } from './card-member.entity';
 
 export enum CardStatus {
   COMPLETE = 'complete',
@@ -128,6 +129,9 @@ export class Card {
 
   @OneToMany(() => Checklist, (checklist) => checklist.card)
   checklists?: Checklist[];
+
+  @OneToMany(() => CardMember, (cm) => cm.card)
+  cardMembers?: CardMember[];
 
   @ManyToMany(() => Label, { cascade: false })
   @JoinTable({
