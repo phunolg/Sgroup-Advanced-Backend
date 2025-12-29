@@ -41,6 +41,8 @@ import { UpdateCardDueDateDto } from '../dto/update-card-due-date.dto';
 import { BoardPermissionGuard } from 'src/common/guards/board-permission.guard';
 import { BoardRole } from 'src/common/enum/role/board-role.enum';
 import { BoardRoles } from 'src/common/decorators/board-roles.decorator';
+import { CreateAttachmentDto } from '../dto/create-attachment.dto';
+import { SetCoverDto } from '../dto/set-cover.dto';
 
 @ApiTags('Cards')
 @ApiBearerAuth()
@@ -313,5 +315,31 @@ export class CardsController {
     @Request() req: any,
   ) {
     return this.cardsService.moveCard(id, dto, req.user.sub);
+  }
+
+  //============= Attachments ============
+  //upload attachment to card
+  @Post(':id/attachments')
+  @ApiOperation({ summary: 'Add an attachment to a card' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({ status: 201, description: 'Attachment added to card' })
+  async addAttachmentToCard(
+    @Param('id') id: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: CreateAttachmentDto,
+    @Request() req: any,
+  ) {
+    return this.cardsService.addAttachment(id, dto, req.user.sub);
+  }
+
+  //chosen cover
+  @Patch(':id/cover')
+  @ApiOperation({ summary: 'Set card cover (attachment or color)' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'Card cover set successfully' })
+  async setCardCover(
+    @Param('id') id: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: SetCoverDto,
+  ) {
+    return this.cardsService.setCover(id, dto);
   }
 }

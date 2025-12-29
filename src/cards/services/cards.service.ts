@@ -12,6 +12,7 @@ import { Checklist } from '../entities/checklist.entity';
 import { ChecklistItem } from '../entities/checklist-item.entity';
 import { CardLabel } from '../entities/card-label.entity';
 import { List } from '../../boards/entities/list.entity';
+import { Attachment } from '../entities/attachment.entity';
 import {
   CreateCardDto,
   UpdateCardDto,
@@ -40,6 +41,8 @@ export class CardsService {
     private readonly cardLabelRepository: Repository<CardLabel>,
     @InjectRepository(List)
     private readonly listRepository: Repository<List>,
+    @InjectRepository(Attachment)
+    private readonly attachmentRepository: Repository<Attachment>,
   ) {}
 
   // ============ Cards CRUD ============
@@ -403,6 +406,49 @@ export class CardsService {
     return card;
   }
 
+  //==========Attchment============
+  async addAttachment(
+    id: string,
+    dto: import('../dto/create-attachment.dto').CreateAttachmentDto,
+    userId: string,
+  ) {
+    const card = await this.findOne(id);
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${id} not found`);
+    }
+    const attachment = this.attachmentRepository.create({
+      card_id: id,
+      url: dto.url,
+      file_name: dto.file_name,
+      size_bytes: dto.size_bytes?.toString(),
+      mime_type: dto.mime_type,
+      uploader_id: userId,
+    } as Partial<import('../entities/attachment.entity').Attachment>);
+    const saved = await this.attachmentRepository.save(attachment);
+    await this.cardRepository.increment({ id }, 'attachments_count', 1);
+    return saved;
+  }
+  async setCover(id: string, dto: import('../dto/set-cover.dto').SetCoverDto) {
+    const card = await this.findOne(id);
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${id} not found`);
+    }
+    if (dto.attachmentId) {
+      // Nếu chọn cover là attachment
+      card.cover_attachment_id = dto.attachmentId;
+      card.cover_color = undefined;
+    } else if (dto.color) {
+      // Nếu chọn cover là màu
+      card.cover_color = dto.color;
+      card.cover_attachment_id = undefined;
+    } else {
+      // Clear cover
+      card.cover_attachment_id = undefined;
+      card.cover_color = undefined;
+    }
+    await this.cardRepository.save(card);
+    return card;
+  }
   // Helper
   private async getNextPosition(listId: string): Promise<number> {
     // ✅ Đổi từ bigint sang number
