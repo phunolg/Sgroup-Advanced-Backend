@@ -18,7 +18,7 @@ export class CardMember {
   @Column({ type: 'timestamptz', default: () => 'now()' })
   assigned_at!: Date;
 
-  @ManyToOne(() => Card, (c) => c, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Card, (c) => c.cardMembers, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'card_id' })
   card?: Card;
 

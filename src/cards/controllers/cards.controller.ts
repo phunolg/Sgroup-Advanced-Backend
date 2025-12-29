@@ -36,6 +36,8 @@ import {
   UpdateChecklistItemDto,
   AddLabelToCardDto,
   MoveCardDto,
+  AddCardMemberDto,
+  CardMemberResponseDto,
 } from '../dto';
 import { UpdateCardDueDateDto } from '../dto/update-card-due-date.dto';
 import { BoardPermissionGuard } from 'src/common/guards/board-permission.guard';
@@ -339,5 +341,48 @@ export class CardsController {
     @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: SetCoverDto,
   ) {
     return this.cardsService.setCover(id, dto);
+  }
+
+  // ============ Card Members (Giao việc) ============
+  @Get(':id/members')
+  @ApiOperation({ summary: 'Get all members assigned to a card' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of card members with avatar',
+    type: [CardMemberResponseDto],
+  })
+  async getCardMembers(@Param('id') id: string) {
+    return this.cardsService.getCardMembers(id);
+  }
+
+  @Post(':id/members')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER)
+  @ApiOperation({ summary: 'Add a member to a card (assign task)' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiBody({ type: AddCardMemberDto, description: 'User ID to add to card' })
+  @ApiResponse({ status: 200, description: 'Member added to card successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'User is not a member of the board',
+  })
+  async addMemberToCard(
+    @Param('id') id: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true })) dto: AddCardMemberDto,
+  ) {
+    return this.cardsService.addMemberToCard(id, dto);
+  }
+
+  @Delete(':id/members/:userId')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER)
+  @ApiOperation({ summary: 'Remove a member from a card (unassign task)' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiParam({ name: 'userId', description: 'User ID to remove from card' })
+  @ApiResponse({ status: 200, description: 'Member removed from card successfully' })
+  @ApiResponse({ status: 404, description: 'User is not assigned to this card' })
+  async removeMemberFromCard(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.cardsService.removeMemberFromCard(id, userId);
   }
 }

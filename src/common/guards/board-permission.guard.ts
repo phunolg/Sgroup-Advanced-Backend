@@ -32,22 +32,33 @@ export class BoardPermissionGuard implements CanActivate {
 
     let boardId = req.params.boardId || req.body?.boardId || req.query?.boardId;
 
-    // Nếu không có boardId nhưng có cardId trong route /cards/, lấy boardId từ card
+    // Nếu không có boardId nhưng có cardId trong route /cards/, lấy boardId từ cardId param
     if (!boardId && req.params.cardId && req.path.includes('/cards/')) {
       const cardRepo = this.dataSource.getRepository(Card);
       const card = await cardRepo.findOne({
         where: { id: req.params.cardId },
         select: ['board_id'],
       });
-
       if (!card) {
         throw new NotFoundException('Card not found');
       }
-
       boardId = card.board_id;
     }
 
-    // ✅ Nếu vẫn không có boardId, lấy từ params.id (cho routes boards)
+    // Nếu không có boardId nhưng có id trong route /cards/:id, lấy boardId từ card
+    if (!boardId && req.params.id && req.path.includes('/cards/')) {
+      const cardRepo = this.dataSource.getRepository(Card);
+      const card = await cardRepo.findOne({
+        where: { id: req.params.id },
+        select: ['board_id'],
+      });
+      if (!card) {
+        throw new NotFoundException('Card not found');
+      }
+      boardId = card.board_id;
+    }
+
+    // Nếu vẫn không có boardId, lấy từ params.id (cho routes boards)
     if (!boardId && req.params.id && !req.path.includes('/cards/')) {
       boardId = req.params.id;
     }

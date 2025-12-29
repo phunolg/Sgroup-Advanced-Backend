@@ -11,9 +11,11 @@ import { Comment } from '../entities/comment.entity';
 import { Checklist } from '../entities/checklist.entity';
 import { ChecklistItem } from '../entities/checklist-item.entity';
 import { CardLabel } from '../entities/card-label.entity';
+import { CardMember } from '../entities/card-member.entity';
 import { List } from '../../boards/entities/list.entity';
 import { Attachment } from '../entities/attachment.entity';
 import { Label } from '../../boards/entities/label.entity';
+import { BoardMember } from '../../boards/entities/board-member.entity';
 import {
   CreateCardDto,
   UpdateCardDto,
@@ -24,6 +26,8 @@ import {
   CreateChecklistItemDto,
   UpdateChecklistItemDto,
   AddLabelToCardDto,
+  AddCardMemberDto,
+  CardMemberResponseDto,
 } from '../dto';
 import { UpdateCardDueDateDto } from '../dto/update-card-due-date.dto';
 
@@ -46,6 +50,10 @@ export class CardsService {
     private readonly attachmentRepository: Repository<Attachment>,
     @InjectRepository(Label)
     private readonly labelRepository: Repository<Label>,
+    @InjectRepository(CardMember)
+    private readonly cardMemberRepository: Repository<CardMember>,
+    @InjectRepository(BoardMember)
+    private readonly boardMemberRepository: Repository<BoardMember>,
   ) {}
 
   // ============ Cards CRUD ============
@@ -85,7 +93,14 @@ export class CardsService {
     return this.cardRepository.find({
       where,
       order: { position: 'ASC' },
-      relations: ['list', 'labels', 'checklists', 'created_by_user'],
+      relations: [
+        'list',
+        'labels',
+        'checklists',
+        'created_by_user',
+        'cardMembers',
+        'cardMembers.user',
+      ],
     });
   }
 
@@ -99,6 +114,8 @@ export class CardsService {
         'checklists.items',
         'attachments',
         'created_by_user',
+        'cardMembers',
+        'cardMembers.user',
       ],
     });
     if (!card) {
@@ -491,6 +508,105 @@ export class CardsService {
     await this.cardRepository.save(card);
     return card;
   }
+
+  // ============ Card Members ============
+  /**
+   * Thêm thành viên vào card
+   * Kiểm tra thành viên phải thuộc board chứa card
+   */
+  async addMemberToCard(cardId: string, dto: AddCardMemberDto): Promise<{ message: string }> {
+    // 1. Validate card exists
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    // 2. Kiểm tra user có phải là thành viên của Board không
+    const boardMember = await this.boardMemberRepository.findOne({
+      where: { board_id: card.board_id, user_id: dto.user_id },
+      relations: ['user'],
+    });
+
+    if (!boardMember) {
+      throw new BadRequestException(
+        `User ${dto.user_id} is not a member of the board. Only board members can be assigned to cards.`,
+      );
+    }
+
+    // 3. Kiểm tra đã được assign chưa
+    const existingMember = await this.cardMemberRepository.findOne({
+      where: { card_id: cardId, user_id: dto.user_id },
+    });
+
+    if (existingMember) {
+      return { message: 'User is already assigned to this card' };
+    }
+
+    // 4. Thêm thành viên vào card
+    await this.cardMemberRepository.save({
+      card_id: cardId,
+      user_id: dto.user_id,
+      assigned_at: new Date(),
+    });
+
+    return {
+      message: `User '${boardMember.user?.name || dto.user_id}' has been assigned to the card`,
+    };
+  }
+
+  /**
+   * Xóa thành viên khỏi card
+   */
+  async removeMemberFromCard(cardId: string, userId: string): Promise<{ message: string }> {
+    // 1. Validate card exists
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    // 2. Kiểm tra user có trong card không
+    const cardMember = await this.cardMemberRepository.findOne({
+      where: { card_id: cardId, user_id: userId },
+      relations: ['user'],
+    });
+
+    if (!cardMember) {
+      throw new NotFoundException(`User ${userId} is not assigned to this card`);
+    }
+
+    // 3. Xóa thành viên khỏi card
+    await this.cardMemberRepository.delete({ card_id: cardId, user_id: userId });
+
+    return {
+      message: `User '${cardMember.user?.name || userId}' has been removed from the card`,
+    };
+  }
+
+  /**
+   * Lấy danh sách thành viên của card (với avatar)
+   */
+  async getCardMembers(cardId: string): Promise<CardMemberResponseDto[]> {
+    // Validate card exists
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    const cardMembers = await this.cardMemberRepository.find({
+      where: { card_id: cardId },
+      relations: ['user'],
+      order: { assigned_at: 'ASC' },
+    });
+
+    return cardMembers.map((cm) => ({
+      user_id: cm.user_id,
+      name: cm.user?.name || '',
+      email: cm.user?.email || '',
+      avatar_url: cm.user?.avatar_url,
+      assigned_at: cm.assigned_at,
+    }));
+  }
+
   // Helper
   private async getNextPosition(listId: string): Promise<number> {
     // ✅ Đổi từ bigint sang number
