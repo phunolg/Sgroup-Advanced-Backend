@@ -97,6 +97,11 @@ export class Card {
   @Column({ type: 'integer', default: 0 })
   comments_count!: number;
 
+  //cover_color
+  @ApiProperty()
+  @Column({ type: 'text', nullable: true })
+  cover_color?: string;
+
   @ApiProperty()
   @Column({ type: 'integer', default: 0 })
   attachments_count!: number;
