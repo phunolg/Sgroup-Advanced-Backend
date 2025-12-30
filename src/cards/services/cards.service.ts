@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Card } from '../entities/card.entity';
+import { ActivityLog } from '../../common/entities/activity-log.entity';
 import { Comment } from '../entities/comment.entity';
 import { Checklist } from '../entities/checklist.entity';
 import { ChecklistItem } from '../entities/checklist-item.entity';
@@ -55,6 +56,17 @@ export class CardsService {
     @InjectRepository(BoardMember)
     private readonly boardMemberRepository: Repository<BoardMember>,
   ) {}
+
+  // Helper để ghi log hoạt động
+  private async logActivity(cardId: string, userId: string, action: string, details?: any) {
+    await this.cardRepository.manager.getRepository(ActivityLog).save({
+      card_id: cardId,
+      user_id: userId,
+      action,
+      details: details ? JSON.stringify(details) : undefined,
+      created_at: new Date(),
+    });
+  }
 
   // ============ Cards CRUD ============
   async create(createCardDto: CreateCardDto, userId: string): Promise<Card> {
@@ -171,9 +183,12 @@ export class CardsService {
       parent_id: dto.parent_id,
     });
     const saved = await this.commentRepository.save(comment);
-
     await this.cardRepository.increment({ id: cardId }, 'comments_count', 1);
-
+    // Ghi log
+    await this.logActivity(cardId, userId, 'comment_created', {
+      commentId: saved.id,
+      body: dto.body,
+    });
     return saved;
   }
 
@@ -200,6 +215,8 @@ export class CardsService {
     if (!updated) {
       throw new NotFoundException('Comment not found after update');
     }
+    // Ghi log
+    await this.logActivity(cardId, userId, 'comment_updated', { commentId, newBody: dto.body });
     return updated;
   }
 
@@ -215,6 +232,8 @@ export class CardsService {
     }
     await this.commentRepository.delete(commentId);
     await this.cardRepository.decrement({ id: cardId }, 'comments_count', 1);
+    // Ghi log
+    await this.logActivity(cardId, userId, 'comment_deleted', { commentId });
   }
 
   async getCardComments(cardId: string): Promise<Comment[]> {
@@ -515,10 +534,19 @@ export class CardsService {
     }
 
     // 5. Update card
+    const oldListId = card.list_id;
     card.list_id = targetListId;
     card.board_id = targetList.board_id;
     card.position = newPosition;
     await this.cardRepository.save(card);
+
+    // Ghi log nếu chuyển list
+    if (oldListId !== targetListId) {
+      await this.logActivity(cardId, userId, 'card_moved', {
+        fromListId: oldListId,
+        toListId: targetListId,
+      });
+    }
 
     return card;
   }
