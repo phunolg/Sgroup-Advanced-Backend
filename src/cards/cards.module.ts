@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { CardsController } from './controllers/cards.controller';
+import { CardActivityController } from './controllers/card-activity.controller';
+import { ActivityLog } from '../common/entities/activity-log.entity';
 import { CardsService } from './services/cards.service';
 import { Card } from './entities/card.entity';
 import { Attachment } from './entities/attachment.entity';
@@ -34,11 +36,12 @@ import { Workspace } from 'src/workspaces/entities/workspace.entity';
       List,
       Board,
       BoardMember,
+      ActivityLog,
     ]),
     JwtModule.register({}),
     ConfigModule,
   ],
-  controllers: [CardsController],
+  controllers: [CardsController, CardActivityController],
   providers: [CardsService, CardPermissionGuard, BoardPermissionGuard],
   exports: [CardsService],
 })
