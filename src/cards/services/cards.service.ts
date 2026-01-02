@@ -695,7 +695,7 @@ export class CardsService {
 
   // Helper
   private async getNextPosition(listId: string): Promise<number> {
-    // ✅ Đổi từ bigint sang number
+    // Đổi từ bigint sang number
     const maxPos = await this.cardRepository
       .createQueryBuilder('card')
       .where('card.list_id = :listId', { listId })

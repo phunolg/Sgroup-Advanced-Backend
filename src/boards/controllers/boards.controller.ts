@@ -250,6 +250,7 @@ export class BoardsController {
   // ============ Lists ============
   @Get(':id/lists')
   @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
   @ApiOperation({
     summary: 'Get all lists in a board',
     description:
@@ -274,6 +275,7 @@ export class BoardsController {
 
   @Get(':id/cards')
   @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
   @ApiOperation({
     summary: 'Get all cards in a board',
     description: 'Get all cards in a board. Use ?archived=true/false to filter by archived status',
