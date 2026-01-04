@@ -188,6 +188,47 @@ export class BoardsService {
     await this.boardRepository.delete(id);
   }
 
+  // get user in workspace but not in board
+  async getAvailableMembersForBoard(boardId: string) {
+    // ensure board exists
+    const board = await this.boardRepository.findOne({
+      where: { id: boardId },
+      relations: ['workspace'],
+    });
+
+    if (!board) throw new NotFoundException('Board not found');
+
+    // get all member of workspace
+    const workspaceMembers = await this.workspaceMemberRepository.find({
+      where: { workspace_id: board.workspace_id },
+      relations: ['user'],
+      order: { joined_at: 'DESC' },
+    });
+
+    // get all current members of board
+    const boardMembers = await this.boardMemberRepository.find({
+      where: { board_id: boardId },
+      select: ['user_id'],
+    });
+
+    const boardMemberIds = boardMembers.map((bm) => bm.user_id);
+
+    // filter workspace members to exclude those already in board and only get 3 users newest
+    const availableMembers = workspaceMembers
+      .filter((wm) => !boardMemberIds.includes(wm.user_id))
+      .slice(0, 3)
+      .map((wm) => ({
+        id: wm.user_id,
+        email: wm.user?.email,
+        name: wm.user?.name,
+        avatar_url: wm.user?.avatar_url,
+        roles: wm.user?.roles,
+        permissions: wm.permissions,
+      }));
+
+    return availableMembers;
+  }
+
   // Board Members
   async addMember(boardId: string, dto: AddBoardMemberDto, userId: string): Promise<BoardMember> {
     await this.checkBoardAccess(boardId, userId, BoardRole.OWNER);
@@ -225,8 +266,8 @@ export class BoardsService {
     await this.boardMemberRepository.delete({ board_id: boardId, user_id: memberId });
   }
 
-  async getBoardMembers(boardId: string, userId: string): Promise<BoardMember[]> {
-    await this.checkBoardAccess(boardId, userId);
+  async getBoardMembers(boardId: string): Promise<BoardMember[]> {
+    // await this.checkBoardAccess(boardId, userId);
     return this.boardMemberRepository.find({
       where: { board_id: boardId },
       relations: ['user'],
@@ -352,7 +393,7 @@ export class BoardsService {
     return this.cardRepository.find({
       where: whereCondition,
       order: { position: 'ASC' },
-      relations: ['list', 'labels', 'checklists', 'created_by_user'],
+      relations: ['list', 'labels', 'checklists', 'created_by_user', 'cardMembers'],
     });
   }
 
@@ -713,7 +754,9 @@ export class BoardsService {
       'EX',
       BoardsService.INVITE_TOKEN_TTL_SECONDS,
     );
-    const invitationLink = `${this.getAppUrl()}/boards/invitations/${token}/verify`;
+    // const invitationLink = `${this.getAppUrl()}/boards/invitations/${token}/verify`;
+    // const invitationLink = `${this.getAppUrl()}/boards/invitations/${token}/accept`;
+    const invitationLink = `${process.env.FE_URL || 'http://localhost:5173/react-app'}/boards/invitations/${token}/accept`;
 
     // gửi email mời nếu có cung cấp email
     if (dto.invited_email) {

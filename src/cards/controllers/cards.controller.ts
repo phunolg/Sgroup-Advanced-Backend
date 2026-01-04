@@ -147,7 +147,7 @@ export class CardsController {
   @ApiParam({ name: 'id', description: 'Card ID' })
   @ApiResponse({ status: 200, description: 'Card unarchived successfully' })
   async unarchive(@Param('id') id: string) {
-    return this.cardsService.archiveCard(id, false);
+    return this.cardsService.archiveCard(id, true);
   }
 
   // ============ Comments ============
