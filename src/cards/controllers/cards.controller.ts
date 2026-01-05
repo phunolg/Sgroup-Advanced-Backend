@@ -327,6 +327,25 @@ export class CardsController {
     return this.cardsService.removeLabelFromCard(id, labelId);
   }
 
+  @Get(':id/labels')
+  @ApiOperation({ summary: 'Get all labels for a card' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'List of labels' })
+  async getCardLabels(@Param('id') id: string) {
+    return this.cardsService.getCardLabels(id);
+  }
+
+  // get labels in boardId but not in cardId
+  @Get(':id/labels/available')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
+  @ApiOperation({ summary: 'Get board labels that are NOT attached to the card (available tags)' })
+  @ApiParam({ name: 'id', description: 'Card ID' })
+  @ApiResponse({ status: 200, description: 'List of available labels' })
+  async getAvailableLabels(@Param('id') id: string) {
+    return this.cardsService.getAvailableLabelsForCard(id);
+  }
+
   // ============ Move Card ============
   @Patch(':id/move')
   @ApiOperation({ summary: 'Move card to another list or position (float position)' })

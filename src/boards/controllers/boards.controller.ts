@@ -422,8 +422,8 @@ export class BoardsController {
   @ApiOperation({ summary: 'Get all labels in a board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'List of labels' })
-  async getBoardLabels(@Param('id') id: string, @Request() req: any) {
-    return this.boardsService.getBoardLabels(id, req.user.sub);
+  async getBoardLabels(@Param('id') id: string) {
+    return this.boardsService.getBoardLabels(id);
   }
 
   @Post(':id/labels')

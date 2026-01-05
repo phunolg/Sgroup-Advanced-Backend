@@ -606,8 +606,8 @@ export class BoardsService {
     await this.labelRepository.delete({ id: labelId, board_id: boardId });
   }
 
-  async getBoardLabels(boardId: string, userId: string): Promise<Label[]> {
-    await this.checkBoardAccess(boardId, userId);
+  async getBoardLabels(boardId: string): Promise<Label[]> {
+    // await this.checkBoardAccess(boardId, userId);
     return this.labelRepository.find({ where: { board_id: boardId } });
   }
 

@@ -542,12 +542,12 @@ export class CardsService {
     }
 
     // Check if already added
-    const existing = await this.cardLabelRepository.findOne({
-      where: { card_id: cardId, label_id: dto.label_id },
-    });
-    if (existing) {
-      return { message: 'Label is already attached to this card' };
-    }
+    // const existing = await this.cardLabelRepository.findOne({
+    //   where: { card_id: cardId, label_id: dto.label_id },
+    // });
+    // if (existing) {
+    //   return { message: 'Label is already attached to this card' };
+    // }
 
     await this.cardLabelRepository.save({
       card_id: cardId,
@@ -575,6 +575,41 @@ export class CardsService {
     await this.cardLabelRepository.delete({ card_id: cardId, label_id: labelId });
 
     return { message: 'Label removed from card successfully' };
+  }
+
+  // get labels of a card
+  async getCardLabels(cardId: string) {
+    const cardLabels = await this.cardLabelRepository.find({
+      where: { card_id: cardId },
+      relations: ['label'],
+    });
+    return cardLabels.map((cl) => cl.label);
+  }
+
+  // get label in boardid but not in cardid
+  async getAvailableLabelsForCard(cardId: string) {
+    const card = await this.cardRepository.findOne({ where: { id: cardId } });
+    if (!card) {
+      throw new NotFoundException(`Card with ID ${cardId} not found`);
+    }
+
+    const attached = await this.cardLabelRepository.find({
+      where: { card_id: cardId },
+      select: ['label_id'],
+    });
+
+    const attachedIds = attached.map((a) => a.label_id).filter(Boolean);
+
+    if (attachedIds.length === 0) {
+      return this.labelRepository.find({ where: { board_id: card.board_id } });
+    }
+
+    return this.labelRepository
+      .createQueryBuilder('label')
+      .where('label.board_id = :boardId', { boardId: card.board_id })
+      .andWhere('label.id NOT IN (:...ids)', { ids: attachedIds })
+      .orderBy('label.name', 'ASC')
+      .getMany();
   }
 
   // ============ Move Card ============
