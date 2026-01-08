@@ -29,12 +29,15 @@ export class User {
   name!: string;
 
   @ApiProperty({ example: 'hashed-password', description: 'Mật khẩu (đã hash)' })
-  @Column({ type: 'text' })
-  password!: string;
+  @Column({ type: 'text', nullable: true })
+  password?: string;
 
   @ApiProperty({ example: 'https://...', description: 'URL avatar' })
   @Column({ type: 'text', nullable: true })
   avatar_url?: string;
+
+  @Column({ type: 'text', nullable: true, default: 'local' })
+  provider?: string;
 
   @ApiProperty({ example: true })
   @Column({ type: 'boolean', default: true })
