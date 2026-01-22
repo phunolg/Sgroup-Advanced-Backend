@@ -7,6 +7,7 @@ import { DevSeedController } from './controllers/dev-seed.controller';
 import { AuthService } from './services/auth.service';
 import { User } from '../users/entities/user.entity';
 import { MailModule } from '../mail/mail.module';
+import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { MailModule } from '../mail/mail.module';
     }),
   ],
   controllers: [AuthController, DevSeedController],
-  providers: [AuthService],
+  providers: [AuthService, GoogleStrategy],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

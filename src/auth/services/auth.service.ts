@@ -45,7 +45,7 @@ export class AuthService {
       throw new UnauthorizedException('This account with email was been delete');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password || '');
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -83,6 +83,52 @@ export class AuthService {
         fullName: user.name,
       },
       expires_in: 15 * 60,
+    };
+  }
+
+  // login with google oAuth2
+  async handleGoogleLogin(googleUser: any) {
+    const { email, firstName, lastName, picture } = googleUser;
+
+    // find this email exists in db ?
+    let user = await this.userRepository.findOne({ where: { email } });
+
+    // case 1: user has already registered
+    if (user) {
+      if (!user.avatar_url) {
+        user.avatar_url = picture;
+        await this.userRepository.save(user);
+      }
+    } else {
+      // case 2: user new, create new user in db
+      user = await this.userRepository.create({
+        email,
+        name: `${firstName} ${lastName}`,
+        avatar_url: picture,
+        password: undefined,
+        provider: 'google',
+        is_active: true,
+        is_deleted: false,
+        is_email_verified: true,
+      });
+      await this.userRepository.save(user);
+    }
+    // release token
+    const payload = { sub: user.id, email: user.email, name: user.name, roles: user.roles };
+
+    const accessToken = await this.jwtService.signAsync(payload, {
+      expiresIn: '15m',
+      secret: this.configService.get<string>('JWT_SECRET'),
+    });
+
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      expiresIn: '7d',
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
     };
   }
 
@@ -148,7 +194,7 @@ export class AuthService {
       where: { email },
     });
 
-    if (user && (await bcrypt.compare(password, user.password))) {
+    if (user && (await bcrypt.compare(password, user.password || ''))) {
       return {
         id: user.id,
         email: user.email,
@@ -170,7 +216,7 @@ export class AuthService {
 
     // verify
     try {
-      const payload = await this.jwtService.verifyAsync(refresh_token, {
+      const payload = await this.jwtService.verifyAsync(refresh_token || '', {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
 
@@ -187,8 +233,14 @@ export class AuthService {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
 
+      const newRefreshToken = await this.jwtService.signAsync(newPayload, {
+        expiresIn: '7d',
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      });
+
       return {
         access_token: newAccessToken,
+        refresh_token: newRefreshToken,
         expires_in: 15 * 60,
       };
     } catch (error) {
@@ -306,7 +358,7 @@ export class AuthService {
     }
 
     // ktr xem passwork mới có khác pass cũ ko
-    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    const isSamePassword = await bcrypt.compare(newPassword, user.password || '');
     if (isSamePassword) {
       throw new BadRequestException('New password must be different from your current password');
     }
@@ -321,20 +373,37 @@ export class AuthService {
     return { message: 'Password reset successfully. You can now login with your new password.' };
   }
 
-  async validateResetToken(token: string): Promise<{ valid: boolean; message: string }> {
+  async validateResetToken(
+    token: string,
+  ): Promise<{ valid: boolean; message: string; redirectUrl?: string }> {
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173/react-app';
+
     const user = await this.userRepository.findOne({
       where: { reset_password_token: token },
     });
 
     if (!user) {
-      return { valid: false, message: 'Invalid reset token' };
+      return {
+        valid: false,
+        message: 'Invalid reset token',
+        redirectUrl: `${frontendUrl}/reset-password-error?message=${encodeURIComponent('Invalid reset token')}`,
+      };
     }
 
     if (!user.reset_password_token_expires || user.reset_password_token_expires < new Date()) {
-      return { valid: false, message: 'Reset token has expired' };
+      return {
+        valid: false,
+        message: 'Reset token has expired',
+        redirectUrl: `${frontendUrl}/reset-password-error?message=${encodeURIComponent('Reset token has expired')}`,
+      };
     }
 
-    return { valid: true, message: 'Token is valid' };
+    return {
+      valid: true,
+      message: 'Token is valid',
+      redirectUrl: `${frontendUrl}/change-password?token=${token}`,
+    };
   }
 
   async updatePassword(
@@ -365,12 +434,12 @@ export class AuthService {
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password || '');
     if (!isCurrentPasswordValid) {
       throw new BadRequestException('Current password is incorrect');
     }
 
-    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    const isSamePassword = await bcrypt.compare(newPassword, user.password || '');
     if (isSamePassword) {
       throw new BadRequestException('New password must be different from your current password');
     }

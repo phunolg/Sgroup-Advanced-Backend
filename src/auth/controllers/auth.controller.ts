@@ -29,11 +29,16 @@ import {
   UpdatePasswordDto,
 } from '../dto';
 import { Response, Request } from 'express';
+import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Public()
   @Post('login')
@@ -79,6 +84,45 @@ export class AuthController {
     });
 
     return result;
+  }
+
+  // login with google oauth2
+
+  // Route to FE call: start login with google
+  @Public()
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuth() {}
+
+  // Route receive callback from google
+  @Public()
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthRedirect(@Req() req: Request, @Res() res: Response) {
+    const { access_token, refresh_token } = await this.authService.handleGoogleLogin(
+      (req as any).user,
+    );
+
+    // save tokens in cookies
+    const isProd = process.env.NODE_ENV === 'production';
+
+    res.cookie('access_token', access_token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+    res.cookie('refresh_token', refresh_token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Redirect to frontend attach tokens
+    const frontendUrl = this.configService.get<string>('FE_URL');
+
+    return res.redirect(`${frontendUrl}/oauth-callback?token=${access_token}`);
   }
 
   @Public()
@@ -197,6 +241,14 @@ export class AuthController {
       path: '/',
     });
 
+    res.cookie('refresh_token', result.refresh_token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
     return result;
   }
 
@@ -257,15 +309,18 @@ export class AuthController {
 
   @Public()
   @Get('reset-password')
-  @ApiOperation({ summary: 'Validate reset password token' })
+  @ApiOperation({ summary: 'Validate reset password token and redirect to FE' })
   @ApiQuery({ name: 'token', description: 'Reset password token' })
-  @ApiResponse({ status: 200, description: 'Token is valid' })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiResponse({ status: 302, description: 'Redirect to frontend' })
   async validateResetPasswordToken(
     @Query('token') token: string,
-  ): Promise<{ valid: boolean; message: string }> {
+    @Res() res: Response,
+  ): Promise<void> {
     const result = await this.authService.validateResetToken(token);
-    return result;
+
+    if (result.redirectUrl) {
+      res.redirect(result.redirectUrl);
+    }
   }
 
   @Public()

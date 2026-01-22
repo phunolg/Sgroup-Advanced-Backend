@@ -178,14 +178,25 @@ export class BoardsController {
     await this.boardsService.deleteBoardPermanent(req.user.sub, id);
   }
 
+  // get available members to add to board
+  @Get(':id/available-members')
+  @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
+  @ApiOperation({ summary: 'Get available members to add to board' })
+  @ApiParam({ name: 'id', description: 'Board ID' })
+  @ApiResponse({ status: 200, description: 'List of available members' })
+  async getAvailableMembersForBoard(@Param('id') id: string) {
+    return this.boardsService.getAvailableMembersForBoard(id);
+  }
   // ============ Board Members ============
   @Get(':id/members')
   @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
   @ApiOperation({ summary: 'Get all members of a board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'List of board members' })
-  async getBoardMembers(@Param('id') id: string, @Request() req: any) {
-    return this.boardsService.getBoardMembers(id, req.user.sub);
+  async getBoardMembers(@Param('id') id: string) {
+    return this.boardsService.getBoardMembers(id);
   }
 
   @Post(':id/members')
@@ -250,6 +261,7 @@ export class BoardsController {
   // ============ Lists ============
   @Get(':id/lists')
   @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
   @ApiOperation({
     summary: 'Get all lists in a board',
     description:
@@ -274,6 +286,7 @@ export class BoardsController {
 
   @Get(':id/cards')
   @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
   @ApiOperation({
     summary: 'Get all cards in a board',
     description: 'Get all cards in a board. Use ?archived=true/false to filter by archived status',
@@ -329,6 +342,7 @@ export class BoardsController {
   @Delete(':id/lists/:listId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.OWNER)
   @ApiOperation({ summary: 'Delete a list' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'listId', description: 'List ID' })
@@ -339,7 +353,7 @@ export class BoardsController {
 
   @Patch(':id/lists/:listId/archive')
   @UseGuards(BoardPermissionGuard)
-  @BoardRoles(BoardRole.MEMBER, BoardRole.OWNER)
+  @BoardRoles(BoardRole.OWNER)
   @ApiOperation({ summary: 'Archive or unarchive a list' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiParam({ name: 'listId', description: 'List ID' })
@@ -408,8 +422,8 @@ export class BoardsController {
   @ApiOperation({ summary: 'Get all labels in a board' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 200, description: 'List of labels' })
-  async getBoardLabels(@Param('id') id: string, @Request() req: any) {
-    return this.boardsService.getBoardLabels(id, req.user.sub);
+  async getBoardLabels(@Param('id') id: string) {
+    return this.boardsService.getBoardLabels(id);
   }
 
   @Post(':id/labels')
@@ -458,6 +472,7 @@ export class BoardsController {
   // ============ Board Invitations ============
   @Post(':id/invitations')
   @UseGuards(BoardPermissionGuard)
+  @BoardRoles(BoardRole.OWNER)
   @ApiOperation({ summary: 'Create board invitation (member or owner only)' })
   @ApiParam({ name: 'id', description: 'Board ID' })
   @ApiResponse({ status: 201, description: 'Invitation created' })
