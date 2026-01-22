@@ -241,6 +241,14 @@ export class AuthController {
       path: '/',
     });
 
+    res.cookie('refresh_token', result.refresh_token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'lax' : 'lax',
+      // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
     return result;
   }
 
