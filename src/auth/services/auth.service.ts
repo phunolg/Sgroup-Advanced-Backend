@@ -248,7 +248,8 @@ export class AuthService {
     }
   }
 
-  async verifyEmail(token: string): Promise<{ message: string }> {
+  async verifyEmail(token: string): Promise<{ message: string; redirectUrl?: string }> {
+    const frontendUrl = this.configService.get<string>('FE_URL');
     const user = await this.userRepository.findOne({
       where: { verification_token: token },
     });
@@ -273,7 +274,10 @@ export class AuthService {
     // Send welcome email
     await this.mailService.sendWelcomeEmail(user.email, user.name);
 
-    return { message: 'Email verified successfully. You can now login.' };
+    return {
+      message: 'Email verified successfully. You can now login.',
+      redirectUrl: `${frontendUrl}/?verified=true`,
+    };
   }
 
   async resendVerificationEmail(email: string): Promise<{ message: string }> {

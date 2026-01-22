@@ -12,6 +12,7 @@ import {
   Patch,
   UnauthorizedException,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
@@ -162,8 +163,25 @@ export class AuthController {
     status: 400,
     description: 'Invalid or expired token',
   })
-  async verifyEmail(@Query('token') token: string): Promise<{ message: string }> {
-    return this.authService.verifyEmail(token);
+  async verifyEmail(@Query('token') token: string, @Res() res: Response) {
+    try {
+      const result = await this.authService.verifyEmail(token);
+
+      if (result.redirectUrl) {
+        return res.redirect(result.redirectUrl);
+      }
+
+      return res.json(result);
+    } catch (error) {
+      const frontendUrl =
+        this.configService.get<string>('FE_URL') || 'http://localhost:5173/react-app';
+      const errorMessage =
+        error instanceof BadRequestException ? error.message : 'Email verification failed';
+
+      return res.redirect(
+        `${frontendUrl}/verify-error?message=${encodeURIComponent(errorMessage)}`,
+      );
+    }
   }
 
   @Public()
