@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
   Query,
+  Res,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspacesService } from '../services/workspaces.service';
@@ -22,6 +23,7 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { WorkspaceRoleGuard } from 'src/common/guards/workspace-role.guard';
 import { Public } from 'src/common/decorators/public.decorator';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
+import { Response } from 'express';
 
 @ApiTags('Workspaces')
 @Controller('api/workspaces')
@@ -40,16 +42,25 @@ export class WorkspacesController {
   @Public()
   @ApiOperation({ summary: 'Accept invitation to workspace' })
   @Get('accept-invitation')
-  async acceptInvitation(@Query('token') token: string): Promise<{ message: string }> {
-    return this.service.acceptInvitation(token);
+  async acceptInvitation(@Query('token') token: string, @Res() res: Response): Promise<void> {
+    const result = await this.service.acceptInvitation(token);
+
+    if (result.html) {
+      res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+      res.send(result.html);
+    } else {
+      res.json(result);
+    }
   }
 
   // Reject invitation
   @Public()
   @ApiOperation({ summary: 'Reject invitation to workspace' })
   @Get('reject-invitation')
-  async rejectInvitation(@Query('token') token: string): Promise<{ message: string }> {
-    return this.service.rejectInvitation(token);
+  async rejectInvitation(@Query('token') token: string, @Res() res: Response): Promise<void> {
+    const result = await this.service.rejectInvitation(token);
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    res.send(result.html);
   }
 
   @ApiOperation({ summary: 'Create workspace' })
@@ -66,6 +77,16 @@ export class WorkspacesController {
   async getWorkspacesForCurrentUser(@Req() req: any): Promise<Workspace[]> {
     const userId = req.user?.sub;
     return this.service.findWorkspacesForUser(userId);
+  }
+
+  // Lấy danh sách người dùng có thể thêm vào workspace (những người chưa phải là thành viên)
+  @ApiOperation({ summary: 'Get available users for workspace' })
+  @ApiOkResponse({ type: [Workspace] })
+  @UseGuards(JwtAuthGuard, WorkspaceRoleGuard)
+  @WorkspaceRoles('owner')
+  @Get(':id/available-users')
+  async getAvailableUsersForWorkspace(@Param('id') workspaceId: string) {
+    return this.service.getAvailableUsersForWorkspace(workspaceId);
   }
 
   @ApiOperation({ summary: 'List workspaces' })
