@@ -23,7 +23,8 @@ export class WorkspacesService {
 
   async create(dto: CreateWorkspaceDto, userId: string): Promise<Workspace> {
     const entity = this.repo.create({ ...dto });
-
+    // archive default false
+    entity.archive = false;
     const savedWorkspace = await this.repo.save(entity);
     // Trước khi lưu workspace thì lưu workspace member với vai trò là owner, chính là người tạo
     const ownerMember = new WorkspaceMember();
@@ -314,6 +315,7 @@ export class WorkspacesService {
     return memberships
       .map((m) => m.workspace)
       .filter((w) => w !== undefined)
+      .filter((workspace) => workspace.is_deleted === false)
       .map((workspace): any => {
         const acceptedMembers = workspace.members?.filter((m) => m.status === 'accepted') || [];
         const owner = acceptedMembers.find((m) => m.role === 'owner');
