@@ -23,9 +23,9 @@ import { CardMember } from './card-member.entity';
 export enum CardStatus {
   COMPLETE = 'complete',
   OVERDUE = 'overdue',
-  DUE_SOON = 'due_soon',
+  DUE_SOON = 'due soon',
   NORMAL = 'normal',
-  NO_DATE = 'no_date',
+  NO_DATE = 'no date',
 }
 
 @Entity('cards')
